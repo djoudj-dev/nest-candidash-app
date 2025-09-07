@@ -15,9 +15,6 @@ interface JwtPayload {
 
 interface RequestWithUser extends Request {
   user?: JwtPayload;
-  headers: {
-    authorization?: string;
-  };
 }
 
 @Injectable()
@@ -43,7 +40,8 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   private extractTokenFromHeader(request: RequestWithUser): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    const authHeader = request.headers['authorization'] as string | undefined;
+    const [type, token] = authHeader?.split(' ') ?? [];
     return type === 'Bearer' ? token : undefined;
   }
 }

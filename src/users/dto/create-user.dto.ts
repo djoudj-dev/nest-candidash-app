@@ -17,6 +17,15 @@ export class CreateUserDto {
   email: string;
 
   @ApiProperty({
+    description: 'Username for personalization (optional)',
+    example: 'john_doe',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'Username must be a string' })
+  username?: string;
+
+  @ApiProperty({
     description: 'Password for the user account',
     example: 'SecurePassword123',
     minLength: 6,

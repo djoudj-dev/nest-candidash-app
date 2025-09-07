@@ -4,18 +4,18 @@ import {
   IsEnum,
   IsOptional,
   IsString,
-  IsUUID,
   MinLength,
 } from 'class-validator';
 import { Role } from '../../../generated/prisma';
 
 export class UpdateUserDto {
   @ApiProperty({
-    description: 'User ID to update',
+    description: 'User ID to update (automatically set from URL parameter)',
     example: '123e4567-e89b-12d3-a456-426614174000',
+    required: false,
   })
-  @IsUUID(4, { message: 'Please provide a valid user ID' })
-  id: string;
+  @IsOptional()
+  id?: string;
 
   @ApiProperty({
     description: 'New email address',
@@ -25,6 +25,15 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEmail({}, { message: 'Please provide a valid email address' })
   email?: string;
+
+  @ApiProperty({
+    description: 'New username for personalization',
+    example: 'new_username',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'Username must be a string' })
+  username?: string;
 
   @ApiProperty({
     description: 'New password',

@@ -9,13 +9,15 @@ import * as crypto from 'crypto';
 
 export interface CreateUserDto {
   email: string;
+  username?: string;
   password: string;
   role?: Role;
 }
 
 export interface UpdateUserDto {
-  id: string;
+  id?: string;
   email?: string;
+  username?: string;
   password?: string;
   role?: Role;
 }
@@ -23,6 +25,7 @@ export interface UpdateUserDto {
 export interface User {
   id: string;
   email: string;
+  username?: string;
   role: Role;
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +43,7 @@ export class UsersService {
     return {
       id: prismaUser.id,
       email: prismaUser.email,
+      username: prismaUser.username ?? undefined,
       role: prismaUser.role,
       createdAt: prismaUser.createdAt,
       updatedAt: prismaUser.updatedAt,
@@ -61,6 +65,7 @@ export class UsersService {
     const prismaUser = await this.prisma.user.create({
       data: {
         email: createUserDto.email,
+        username: createUserDto.username,
         password: hashedPassword,
         role: createUserDto.role || 'USER',
       },
@@ -94,6 +99,10 @@ export class UsersService {
   }
 
   async update(updateUserDto: UpdateUserDto): Promise<User> {
+    if (!updateUserDto.id) {
+      throw new NotFoundException('User ID is required for update');
+    }
+
     const user = await this.findOne(updateUserDto.id);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -101,12 +110,16 @@ export class UsersService {
 
     const updateData: Partial<{
       email: string;
+      username: string;
       password: string;
       role: typeof updateUserDto.role;
     }> = {};
 
     if (updateUserDto.email) {
       updateData.email = updateUserDto.email;
+    }
+    if (updateUserDto.username !== undefined) {
+      updateData.username = updateUserDto.username;
     }
     if (updateUserDto.password) {
       updateData.password = this.hashPassword(updateUserDto.password);

@@ -15,6 +15,13 @@ export class UserResponseDto {
   email: string;
 
   @ApiProperty({
+    description: 'Username for personalization',
+    example: 'john_doe',
+    required: false,
+  })
+  username?: string;
+
+  @ApiProperty({
     description: 'User role',
     enum: Role,
     example: Role.USER,
