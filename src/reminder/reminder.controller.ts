@@ -18,6 +18,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { ReminderService } from './reminder.service';
+import { ReminderAutomationService } from './reminder-automation.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateReminderDto } from './dto/create-reminder.dto';
 import { UpdateReminderDto } from './dto/update-reminder.dto';
@@ -26,7 +27,10 @@ import { ReminderResponseDto } from './dto/reminder-response.dto';
 @ApiTags('Reminder')
 @Controller('reminder')
 export class ReminderController {
-  constructor(private readonly reminderService: ReminderService) {}
+  constructor(
+    private readonly reminderService: ReminderService,
+    private readonly reminderAutomationService: ReminderAutomationService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -175,5 +179,68 @@ export class ReminderController {
   ) {
     const userId = req.user.sub;
     return this.reminderService.remove(id, userId);
+  }
+
+  @Post('automation/execute')
+  @ApiOperation({
+    summary: 'Exécuter manuellement la vérification des rappels automatiques',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Manual reminder check executed successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        processed: {
+          type: 'number',
+          description: 'Number of reminders processed',
+        },
+        successful: {
+          type: 'number',
+          description: 'Number of successful emails sent',
+        },
+        failed: {
+          type: 'number',
+          description: 'Number of failed email attempts',
+        },
+      },
+    },
+  })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  async executeReminderCheck() {
+    return this.reminderAutomationService.executeReminderCheck();
+  }
+
+  @Get('automation/statistics')
+  @ApiOperation({
+    summary: 'Obtenir les statistiques des rappels automatiques',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reminder statistics retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        totalActive: {
+          type: 'number',
+          description: 'Total number of active reminders',
+        },
+        dueNow: { type: 'number', description: 'Number of reminders due now' },
+        dueToday: {
+          type: 'number',
+          description: 'Number of reminders due today',
+        },
+        dueThisWeek: {
+          type: 'number',
+          description: 'Number of reminders due this week',
+        },
+      },
+    },
+  })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  async getReminderStatistics() {
+    return this.reminderAutomationService.getReminderStatistics();
   }
 }
