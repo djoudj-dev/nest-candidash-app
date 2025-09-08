@@ -10,6 +10,12 @@ export interface ReminderEmailData {
   appliedAt?: Date;
 }
 
+export interface RegistrationEmailData {
+  userEmail: string;
+  userName?: string;
+  registrationDate: Date;
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -25,6 +31,38 @@ export class MailService {
         pass: this.configService.get<string>('MAIL_PASSWORD'),
       },
     });
+  }
+
+  /**
+   * Envoi d'un email de confirmation d'inscription à l'utilisateur
+   */
+  async sendRegistrationConfirmationEmail(
+    data: RegistrationEmailData,
+  ): Promise<boolean> {
+    try {
+      const htmlContent = this.generateRegistrationEmailTemplate(data);
+      const textContent = this.generateRegistrationEmailText(data);
+
+      const mailOptions = {
+        from: `${this.configService.get<string>('MAIL_FROM_NAME')} <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+        to: data.userEmail,
+        subject: 'Bienvenue ! Confirmation de votre inscription',
+        text: textContent,
+        html: htmlContent,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(
+        `Email de confirmation d'inscription envoyé avec succès à ${data.userEmail}`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors de l'envoi de l'email de confirmation à ${data.userEmail}:`,
+        error,
+      );
+      return false;
+    }
   }
 
   /**
@@ -113,6 +151,97 @@ export class MailService {
         </div>
       </body>
       </html>
+    `;
+  }
+
+  /**
+   * Génère le template HTML pour l'email de confirmation d'inscription
+   */
+  private generateRegistrationEmailTemplate(
+    data: RegistrationEmailData,
+  ): string {
+    const registrationDateText =
+      data.registrationDate.toLocaleDateString('fr-FR');
+
+    return `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="utf-8">
+        <title>Bienvenue ! Confirmation d'inscription</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #2c5aa0; padding: 20px; text-align: center; color: white; }
+          .content { padding: 20px; }
+          .footer { background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 12px; }
+          .highlight { color: #2c5aa0; font-weight: bold; }
+          .welcome-box { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #2c5aa0; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🎉 Bienvenue !</h1>
+          </div>
+          <div class="content">
+            <p>Bonjour <strong>${data.userName || 'cher utilisateur'}</strong>,</p>
+            
+            <div class="welcome-box">
+              <p><strong>Félicitations ! Votre compte a été créé avec succès.</strong></p>
+            </div>
+            
+            <p>Votre inscription sur notre plateforme de suivi des candidatures a été confirmée le <span class="highlight">${registrationDateText}</span>.</p>
+            
+            <p>Vous pouvez maintenant :</p>
+            <ul>
+              <li>Créer et gérer vos candidatures</li>
+              <li>Suivre l'évolution de vos postulations</li>
+              <li>Recevoir des rappels automatiques</li>
+              <li>Organiser vos recherches d'emploi</li>
+            </ul>
+            
+            <p>Nous vous souhaitons beaucoup de succès dans vos recherches !</p>
+            
+            <p>L'équipe de support</p>
+          </div>
+          <div class="footer">
+            <p>Cet email a été envoyé automatiquement suite à votre inscription.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Génère le contenu texte pour l'email de confirmation d'inscription
+   */
+  private generateRegistrationEmailText(data: RegistrationEmailData): string {
+    const registrationDateText =
+      data.registrationDate.toLocaleDateString('fr-FR');
+
+    return `
+Bienvenue ! Confirmation d'inscription
+
+Bonjour ${data.userName || 'cher utilisateur'},
+
+Félicitations ! Votre compte a été créé avec succès.
+
+Votre inscription sur notre plateforme de suivi des candidatures a été confirmée le ${registrationDateText}.
+
+Vous pouvez maintenant :
+- Créer et gérer vos candidatures
+- Suivre l'évolution de vos postulations
+- Recevoir des rappels automatiques
+- Organiser vos recherches d'emploi
+
+Nous vous souhaitons beaucoup de succès dans vos recherches !
+
+L'équipe de support
+
+---
+Cet email a été envoyé automatiquement suite à votre inscription.
     `;
   }
 

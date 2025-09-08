@@ -28,11 +28,15 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from '../auth/dto/auth-response.dto';
 import { UploadCvResponseDto } from './dto/upload-cv.dto';
 import { getMulterConfig } from '../config/multer.config';
+import { MailService } from '../mail/mail.service';
 
 @ApiTags('Users')
 @Controller('accounts')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly mailService: MailService,
+  ) {}
 
   @Get('directory')
   @ApiOperation({ summary: 'Récupérer tous les comptes utilisateur' })
@@ -84,6 +88,22 @@ export class UsersController {
   @ApiResponse({ status: 409, description: 'User already exists' })
   async createUser(@Body(ValidationPipe) createUserDto: CreateUserDto) {
     const user = await this.usersService.create(createUserDto);
+
+    // Envoi de l'email de confirmation d'inscription
+    try {
+      await this.mailService.sendRegistrationConfirmationEmail({
+        userEmail: user.email,
+        userName: user.username,
+        registrationDate: user.createdAt,
+      });
+    } catch (error) {
+      // Log l'erreur mais ne fait pas échouer la création du compte
+      console.error(
+        "Erreur lors de l'envoi de l'email de confirmation:",
+        error,
+      );
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userResponse } = user;
     return userResponse;
