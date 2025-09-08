@@ -210,6 +210,23 @@ export class UsersService {
     });
   }
 
+  /**
+   * Upload CV file for a user
+   */
+  async uploadCv(userId: string, filePath: string): Promise<User> {
+    const user = await this.findOne(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const prismaUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { cvPath: filePath },
+    });
+
+    return this.mapPrismaUserToUser(prismaUser);
+  }
+
   private hashPassword(password: string): string {
     return crypto.createHash('sha256').update(password).digest('hex');
   }

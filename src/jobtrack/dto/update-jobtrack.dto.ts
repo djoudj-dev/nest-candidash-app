@@ -7,7 +7,7 @@ import {
   IsObject,
   MinLength,
 } from 'class-validator';
-import { JobStatus } from '../../../generated/prisma';
+import { JobStatus, ContractType } from '../../../generated/prisma';
 
 export class UpdateJobTrackDto {
   @ApiProperty({
@@ -64,6 +64,18 @@ export class UpdateJobTrackDto {
   @IsOptional()
   @IsEnum(JobStatus, { message: 'Status must be a valid job status' })
   status?: JobStatus;
+
+  @ApiProperty({
+    description: 'Type of contract for the job posting',
+    enum: ContractType,
+    example: ContractType.CDI,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(ContractType, {
+    message: 'Contract type must be a valid contract type',
+  })
+  contractType?: ContractType;
 
   @ApiProperty({
     description: 'Additional notes about the job application',

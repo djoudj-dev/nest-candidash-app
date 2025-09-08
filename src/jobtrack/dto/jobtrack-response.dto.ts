@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { JobStatus } from '../../../generated/prisma';
+import { JobStatus, ContractType } from '../../../generated/prisma';
 
 export class JobTrackResponseDto {
   @ApiProperty({
@@ -47,6 +47,14 @@ export class JobTrackResponseDto {
     example: JobStatus.APPLIED,
   })
   status: JobStatus;
+
+  @ApiProperty({
+    description: 'Type of contract for the job posting',
+    enum: ContractType,
+    example: ContractType.CDI,
+    nullable: true,
+  })
+  contractType?: ContractType;
 
   @ApiProperty({
     description: 'Additional notes about the job application',

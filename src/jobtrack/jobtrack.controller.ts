@@ -9,7 +9,10 @@ import {
   UseGuards,
   ValidationPipe,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -22,7 +25,9 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateJobTrackDto } from './dto/create-jobtrack.dto';
 import { UpdateJobTrackDto } from './dto/update-jobtrack.dto';
 import { JobTrackResponseDto } from './dto/jobtrack-response.dto';
+import { AttachmentResponseDto } from './dto/upload-attachment.dto';
 import { JobStatus } from '../../generated/prisma';
+import { getMulterConfig, getImageMulterConfig } from '../config/multer.config';
 
 @ApiTags('JobTrack')
 @Controller('jobtrack')
@@ -152,5 +157,89 @@ export class JobTrackController {
   ) {
     const userId = req.user.sub;
     return this.jobTrackService.remove(id, userId);
+  }
+
+  @Post(':id/upload-document')
+  @ApiOperation({ summary: 'Upload document attachment to job track' })
+  @ApiParam({ name: 'id', description: 'Job track ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Document uploaded successfully',
+    type: AttachmentResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file format' })
+  @ApiResponse({ status: 403, description: 'Access denied to this job track' })
+  @ApiResponse({ status: 404, description: 'Job track not found' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file', getMulterConfig()))
+  async uploadDocument(
+    @Param('id') jobTrackId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: { user: { sub: string } },
+  ): Promise<AttachmentResponseDto> {
+    const userId = req.user.sub;
+
+    if (!file) {
+      throw new Error('Aucun fichier fourni');
+    }
+
+    const filePath = `/uploads/docs/${file.filename}`;
+    await this.jobTrackService.addAttachment(jobTrackId, userId, {
+      filePath,
+      originalName: file.originalname,
+      size: file.size,
+      fileType: 'document',
+    });
+
+    return {
+      filePath,
+      originalName: file.originalname,
+      size: file.size,
+      fileType: 'document',
+      uploadedAt: new Date(),
+    };
+  }
+
+  @Post(':id/upload-image')
+  @ApiOperation({ summary: 'Upload image attachment to job track' })
+  @ApiParam({ name: 'id', description: 'Job track ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Image uploaded successfully',
+    type: AttachmentResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file format' })
+  @ApiResponse({ status: 403, description: 'Access denied to this job track' })
+  @ApiResponse({ status: 404, description: 'Job track not found' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file', getImageMulterConfig()))
+  async uploadImage(
+    @Param('id') jobTrackId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: { user: { sub: string } },
+  ): Promise<AttachmentResponseDto> {
+    const userId = req.user.sub;
+
+    if (!file) {
+      throw new Error('Aucun fichier fourni');
+    }
+
+    const filePath = `/uploads/images/${file.filename}`;
+    await this.jobTrackService.addAttachment(jobTrackId, userId, {
+      filePath,
+      originalName: file.originalname,
+      size: file.size,
+      fileType: 'image',
+    });
+
+    return {
+      filePath,
+      originalName: file.originalname,
+      size: file.size,
+      fileType: 'image',
+      uploadedAt: new Date(),
+    };
   }
 }

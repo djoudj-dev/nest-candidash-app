@@ -4,9 +4,14 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { JobTrack as PrismaJobTrack, JobStatus } from '../../generated/prisma';
+import {
+  JobTrack as PrismaJobTrack,
+  JobStatus,
+  ContractType,
+} from '../../generated/prisma';
 import { CreateJobTrackDto } from './dto/create-jobtrack.dto';
 import { UpdateJobTrackDto } from './dto/update-jobtrack.dto';
+import * as crypto from 'crypto';
 
 export interface JobTrack {
   id: string;
@@ -16,6 +21,7 @@ export interface JobTrack {
   jobUrl?: string;
   appliedAt?: Date;
   status: JobStatus;
+  contractType?: ContractType;
   notes?: string;
   attachments?: Record<string, any>;
   createdAt: Date;
@@ -40,6 +46,7 @@ export class JobTrackService {
       jobUrl: prismaJobTrack.jobUrl ?? undefined,
       appliedAt: prismaJobTrack.appliedAt ?? undefined,
       status: prismaJobTrack.status,
+      contractType: prismaJobTrack.contractType ?? undefined,
       notes: prismaJobTrack.notes ?? undefined,
       attachments: prismaJobTrack.attachments as
         | Record<string, any>
@@ -66,6 +73,7 @@ export class JobTrackService {
           ? new Date(createJobTrackDto.appliedAt)
           : undefined,
         status: createJobTrackDto.status || 'APPLIED',
+        contractType: createJobTrackDto.contractType,
         notes: createJobTrackDto.notes,
         attachments: createJobTrackDto.attachments || undefined,
       },
@@ -139,6 +147,7 @@ export class JobTrackService {
       jobUrl: string;
       appliedAt: Date;
       status: JobStatus;
+      contractType: ContractType;
       notes: string;
       attachments: Record<string, any>;
     }> = {};
@@ -159,6 +168,9 @@ export class JobTrackService {
     }
     if (updateJobTrackDto.status !== undefined) {
       updateData.status = updateJobTrackDto.status;
+    }
+    if (updateJobTrackDto.contractType !== undefined) {
+      updateData.contractType = updateJobTrackDto.contractType;
     }
     if (updateJobTrackDto.notes !== undefined) {
       updateData.notes = updateJobTrackDto.notes;
@@ -216,5 +228,56 @@ export class JobTrackService {
     return prismaJobTracks.map((jobTrack) =>
       this.mapPrismaJobTrackToJobTrack(jobTrack),
     );
+  }
+
+  /**
+   * Add attachment to a job track
+   */
+  async addAttachment(
+    jobTrackId: string,
+    userId: string,
+    attachmentData: {
+      filePath: string;
+      originalName: string;
+      size: number;
+      fileType: 'document' | 'image';
+    },
+  ): Promise<JobTrack> {
+    const existingJobTrack = await this.prisma.jobTrack.findUnique({
+      where: { id: jobTrackId },
+    });
+
+    if (!existingJobTrack) {
+      throw new NotFoundException('JobTrack not found');
+    }
+
+    // Check ownership
+    if (existingJobTrack.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez modifier que vos propres annonces',
+      );
+    }
+
+    // Get existing attachments or initialize empty array
+    const currentAttachments = (existingJobTrack.attachments as any[]) || [];
+
+    // Add new attachment
+    const newAttachment = {
+      id: crypto.randomUUID(),
+      filePath: attachmentData.filePath,
+      originalName: attachmentData.originalName,
+      size: attachmentData.size,
+      fileType: attachmentData.fileType,
+      uploadedAt: new Date(),
+    };
+
+    currentAttachments.push(newAttachment);
+
+    const prismaJobTrack = await this.prisma.jobTrack.update({
+      where: { id: jobTrackId },
+      data: { attachments: currentAttachments },
+    });
+
+    return this.mapPrismaJobTrackToJobTrack(prismaJobTrack);
   }
 }

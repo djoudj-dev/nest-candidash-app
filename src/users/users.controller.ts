@@ -10,7 +10,10 @@ import {
   ValidationPipe,
   Request,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -23,6 +26,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from '../auth/dto/auth-response.dto';
+import { UploadCvResponseDto } from './dto/upload-cv.dto';
+import { getMulterConfig } from '../config/multer.config';
 
 @ApiTags('Users')
 @Controller('accounts')
@@ -154,5 +159,51 @@ export class UsersController {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userResponse } = user;
     return userResponse;
+  }
+
+  @Post('upload-cv/:id')
+  @ApiOperation({ summary: 'Upload CV for user' })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'CV uploaded successfully',
+    type: UploadCvResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file format' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - can only upload own CV',
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file', getMulterConfig()))
+  async uploadCv(
+    @Param('id') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: { user: { sub: string } },
+  ): Promise<UploadCvResponseDto> {
+    const currentUserId = req.user.sub;
+
+    // Allow user to upload CV only to their own profile
+    if (currentUserId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez télécharger un CV que pour votre propre profil',
+      );
+    }
+
+    if (!file) {
+      throw new Error('Aucun fichier fourni');
+    }
+
+    const filePath = `/uploads/docs/${file.filename}`;
+    await this.usersService.uploadCv(userId, filePath);
+
+    return {
+      cvPath: filePath,
+      originalName: file.originalname,
+      size: file.size,
+      uploadedAt: new Date(),
+    };
   }
 }
