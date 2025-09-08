@@ -9,18 +9,20 @@ datasource db {
 }
 
 model User {
-  id                  String         @id @default(uuid())
-  email               String         @unique
-  username            String?
-  password            String
-  role                Role           @default(USER)
-  cvPath              String?
-  refreshToken        String?
-  refreshTokenExpires DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  JobTrack            JobTrack[]
-  UserTracking        UserTracking[]
+  id                     String         @id @default(uuid())
+  email                  String         @unique
+  username               String?
+  password               String
+  role                   Role           @default(USER)
+  cvPath                 String?
+  refreshToken           String?
+  refreshTokenExpires    DateTime?
+  resetPasswordToken     String?
+  resetPasswordExpires   DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  JobTrack               JobTrack[]
+  UserTracking           UserTracking[]
 
   @@map("Utilisateurs")
 }

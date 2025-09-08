@@ -16,6 +16,13 @@ export interface RegistrationEmailData {
   registrationDate: Date;
 }
 
+export interface PasswordResetEmailData {
+  userEmail: string;
+  userName?: string;
+  resetToken: string;
+  resetUrl: string;
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -59,6 +66,36 @@ export class MailService {
     } catch (error) {
       this.logger.error(
         `Erreur lors de l'envoi de l'email de confirmation à ${data.userEmail}:`,
+        error,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Envoi d'un email de réinitialisation de mot de passe à l'utilisateur
+   */
+  async sendPasswordResetEmail(data: PasswordResetEmailData): Promise<boolean> {
+    try {
+      const htmlContent = this.generatePasswordResetEmailTemplate(data);
+      const textContent = this.generatePasswordResetEmailText(data);
+
+      const mailOptions = {
+        from: `${this.configService.get<string>('MAIL_FROM_NAME')} <${this.configService.get<string>('MAIL_FROM_ADDRESS')}>`,
+        to: data.userEmail,
+        subject: 'Réinitialisation de votre mot de passe',
+        text: textContent,
+        html: htmlContent,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(
+        `Email de réinitialisation de mot de passe envoyé avec succès à ${data.userEmail}`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors de l'envoi de l'email de réinitialisation à ${data.userEmail}:`,
         error,
       );
       return false;
@@ -211,6 +248,91 @@ export class MailService {
         </div>
       </body>
       </html>
+    `;
+  }
+
+  /**
+   * Génère le template HTML pour l'email de réinitialisation de mot de passe
+   */
+  private generatePasswordResetEmailTemplate(
+    data: PasswordResetEmailData,
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="utf-8">
+        <title>Réinitialisation de votre mot de passe</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #e74c3c; padding: 20px; text-align: center; color: white; }
+          .content { padding: 20px; }
+          .footer { background-color: #f4f4f4; padding: 15px; text-align: center; font-size: 12px; }
+          .highlight { color: #e74c3c; font-weight: bold; }
+          .warning-box { background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 20px 0; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #e74c3c; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 Réinitialisation de mot de passe</h1>
+          </div>
+          <div class="content">
+            <p>Bonjour <strong>${data.userName || 'cher utilisateur'}</strong>,</p>
+            
+            <p>Vous avez demandé la réinitialisation de votre mot de passe pour votre compte sur notre plateforme de suivi des candidatures.</p>
+            
+            <div class="warning-box">
+              <p><strong>⚠️ Important :</strong> Si vous n'avez pas demandé cette réinitialisation, ignorez cet email. Votre mot de passe actuel reste inchangé.</p>
+            </div>
+            
+            <p>Pour réinitialiser votre mot de passe, cliquez sur le bouton ci-dessous :</p>
+            
+            <p style="text-align: center; margin: 30px 0;">
+              <a href="${data.resetUrl}" class="button">Réinitialiser mon mot de passe</a>
+            </p>
+            
+            <p>Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :</p>
+            <p style="word-break: break-all; color: #666; font-size: 14px;">${data.resetUrl}</p>
+            
+            <p><strong>Ce lien expirera dans 1 heure</strong> pour des raisons de sécurité.</p>
+            
+            <p>Cordialement,<br>L'équipe de support</p>
+          </div>
+          <div class="footer">
+            <p>Cet email a été envoyé automatiquement suite à une demande de réinitialisation de mot de passe.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Génère le contenu texte pour l'email de réinitialisation de mot de passe
+   */
+  private generatePasswordResetEmailText(data: PasswordResetEmailData): string {
+    return `
+Réinitialisation de votre mot de passe
+
+Bonjour ${data.userName || 'cher utilisateur'},
+
+Vous avez demandé la réinitialisation de votre mot de passe pour votre compte sur notre plateforme de suivi des candidatures.
+
+⚠️ IMPORTANT : Si vous n'avez pas demandé cette réinitialisation, ignorez cet email. Votre mot de passe actuel reste inchangé.
+
+Pour réinitialiser votre mot de passe, cliquez sur le lien suivant :
+${data.resetUrl}
+
+Ce lien expirera dans 1 heure pour des raisons de sécurité.
+
+Cordialement,
+L'équipe de support
+
+---
+Cet email a été envoyé automatiquement suite à une demande de réinitialisation de mot de passe.
     `;
   }
 

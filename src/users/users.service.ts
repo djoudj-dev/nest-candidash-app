@@ -155,6 +155,100 @@ export class UsersService {
   }
 
   /**
+   * Generate a secure password reset token
+   */
+  generatePasswordResetToken(): string {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  /**
+   * Set password reset token for a user
+   */
+  async setPasswordResetToken(email: string): Promise<string | null> {
+    const user = await this.findByEmail(email);
+    if (!user) {
+      return null;
+    }
+
+    const resetToken = this.generatePasswordResetToken();
+    const resetExpires = new Date();
+    resetExpires.setHours(resetExpires.getHours() + 1); // Token expires in 1 hour
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires: resetExpires,
+      },
+    });
+
+    return resetToken;
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPasswordWithToken(
+    token: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: {
+          gte: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      return false;
+    }
+
+    const hashedPassword = this.hashPassword(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
+
+    return true;
+  }
+
+  /**
+   * Change password for authenticated user
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    const user = await this.findOne(userId);
+    if (!user) {
+      return false;
+    }
+
+    if (!this.validatePassword(user, currentPassword)) {
+      return false;
+    }
+
+    const hashedPassword = this.hashPassword(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    return true;
+  }
+
+  /**
    * Update refresh token for a user
    */
   async updateRefreshToken(

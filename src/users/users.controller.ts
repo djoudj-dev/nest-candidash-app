@@ -27,6 +27,9 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from '../auth/dto/auth-response.dto';
 import { UploadCvResponseDto } from './dto/upload-cv.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { getMulterConfig } from '../config/multer.config';
 import { MailService } from '../mail/mail.service';
 
@@ -225,5 +228,98 @@ export class UsersController {
       size: file.size,
       uploadedAt: new Date(),
     };
+  }
+
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Demander une réinitialisation de mot de passe' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email de réinitialisation envoyé si le compte existe',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  async forgotPassword(
+    @Body(ValidationPipe) forgotPasswordDto: ForgotPasswordDto,
+  ) {
+    const resetToken = await this.usersService.setPasswordResetToken(
+      forgotPasswordDto.email,
+    );
+
+    if (resetToken) {
+      const user = await this.usersService.findByEmail(forgotPasswordDto.email);
+      if (user) {
+        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+
+        try {
+          await this.mailService.sendPasswordResetEmail({
+            userEmail: user.email,
+            userName: user.username,
+            resetToken,
+            resetUrl,
+          });
+        } catch (error) {
+          console.error(
+            "Erreur lors de l'envoi de l'email de réinitialisation:",
+            error,
+          );
+        }
+      }
+    }
+
+    // Toujours retourner success pour éviter l'énumération des emails
+    return {
+      message:
+        'Si votre email existe, vous recevrez les instructions de réinitialisation',
+    };
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Réinitialiser le mot de passe avec un token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Mot de passe réinitialisé avec succès',
+  })
+  @ApiResponse({ status: 400, description: 'Token invalide ou expiré' })
+  async resetPassword(
+    @Body(ValidationPipe) resetPasswordDto: ResetPasswordDto,
+  ) {
+    const success = await this.usersService.resetPasswordWithToken(
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+    );
+
+    if (!success) {
+      throw new Error('Token invalide ou expiré');
+    }
+
+    return { message: 'Mot de passe réinitialisé avec succès' };
+  }
+
+  @Put('change-password')
+  @ApiOperation({ summary: 'Changer le mot de passe (utilisateur connecté)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Mot de passe modifié avec succès',
+  })
+  @ApiResponse({ status: 400, description: 'Mot de passe actuel incorrect' })
+  @ApiResponse({ status: 401, description: 'Non autorisé' })
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @Body(ValidationPipe) changePasswordDto: ChangePasswordDto,
+    @Request() req: { user: { sub: string } },
+  ) {
+    const userId = req.user.sub;
+
+    const success = await this.usersService.changePassword(
+      userId,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
+    );
+
+    if (!success) {
+      throw new Error('Mot de passe actuel incorrect');
+    }
+
+    return { message: 'Mot de passe modifié avec succès' };
   }
 }
