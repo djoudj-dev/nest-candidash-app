@@ -9,10 +9,9 @@ import {
   UseGuards,
   ValidationPipe,
   Request,
-  UseInterceptors,
-  UploadedFile,
+  Query,
+  NotFoundException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -22,36 +21,40 @@ import {
 } from '@nestjs/swagger';
 import { JobTrackService } from './jobtrack.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CreateJobTrackDto } from './dto/create-jobtrack.dto';
-import { UpdateJobTrackDto } from './dto/update-jobtrack.dto';
 import { JobTrackResponseDto } from './dto/jobtrack-response.dto';
-import { AttachmentResponseDto } from './dto/upload-attachment.dto';
 import { JobStatus } from '../../generated/prisma';
-import { getMulterConfig, getImageMulterConfig } from '../config/multer.config';
+import { CreateJobTrackWithReminderDto } from './dto/create-jobtrack-with-reminder.dto';
+import { JobTrackWithReminderResponseDto } from './dto/jobtrack-with-reminder-response.dto';
+import { UpdateJobTrackWithReminderDto } from './dto/update-jobtrack-with-reminder.dto';
 
 @ApiTags('JobTrack')
 @Controller('jobtrack')
 export class JobTrackController {
   constructor(private readonly jobTrackService: JobTrackService) {}
 
-  @Post()
+  @Post('with-reminder')
   @ApiOperation({
-    summary: 'Créer une nouvelle annonce de suivi de candidature',
+    summary:
+      'Créer une annonce et son rappel initial en un seul POST (authentifié)',
   })
   @ApiResponse({
     status: 201,
-    description: 'Job track created successfully',
-    type: JobTrackResponseDto,
+    description: 'Annonce et rappel initial créés avec succès',
+    type: JobTrackWithReminderResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 400, description: 'Données d’entrée invalides' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  async createJobTrack(
-    @Body(ValidationPipe) createJobTrackDto: CreateJobTrackDto,
+  async createJobTrackWithReminder(
+    @Body(ValidationPipe) body: CreateJobTrackWithReminderDto,
     @Request() req: { user: { sub: string } },
-  ) {
+  ): Promise<JobTrackWithReminderResponseDto> {
     const userId = req.user.sub;
-    return this.jobTrackService.create(userId, createJobTrackDto);
+    const result = await this.jobTrackService.createWithReminder(userId, body);
+    return {
+      ...result.jobTrack,
+      reminder: result.reminder,
+    };
   }
 
   @Get()
@@ -60,7 +63,7 @@ export class JobTrackController {
   })
   @ApiResponse({
     status: 200,
-    description: 'List of user job tracks',
+    description: 'Liste des annonces de l’utilisateur',
     type: [JobTrackResponseDto],
   })
   @ApiBearerAuth('JWT-auth')
@@ -74,12 +77,12 @@ export class JobTrackController {
   @ApiOperation({ summary: 'Récupérer les annonces par statut' })
   @ApiParam({
     name: 'status',
-    description: 'Job status filter',
+    description: 'Filtre par statut d’annonce',
     enum: JobStatus,
   })
   @ApiResponse({
     status: 200,
-    description: 'List of job tracks with specified status',
+    description: 'Liste des annonces avec le statut spécifié',
     type: [JobTrackResponseDto],
   })
   @ApiBearerAuth('JWT-auth')
@@ -94,14 +97,14 @@ export class JobTrackController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Récupérer une annonce spécifique par ID' })
-  @ApiParam({ name: 'id', description: 'Job track ID' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l’annonce' })
   @ApiResponse({
     status: 200,
-    description: 'Job track details',
+    description: 'Détails de l’annonce',
     type: JobTrackResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Job track not found' })
-  @ApiResponse({ status: 403, description: 'Access denied to this job track' })
+  @ApiResponse({ status: 404, description: 'Annonce introuvable' })
+  @ApiResponse({ status: 403, description: 'Accès refusé à cette annonce' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   async getJobTrackById(
@@ -111,44 +114,60 @@ export class JobTrackController {
     const userId = req.user.sub;
     const jobTrack = await this.jobTrackService.findOne(id, userId);
     if (!jobTrack) {
-      throw new Error('Job track not found');
+      throw new NotFoundException('Annonce introuvable');
     }
     return jobTrack;
   }
 
-  @Put(':id')
-  @ApiOperation({ summary: 'Mettre à jour une annonce de candidature' })
-  @ApiParam({ name: 'id', description: 'Job track ID to update' })
+  @Put(':id/with-reminder')
+  @ApiOperation({
+    summary:
+      'Mettre à jour une annonce et son rappel (équivalent du POST with-reminder)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Identifiant de l’annonce à mettre à jour',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Job track updated successfully',
-    type: JobTrackResponseDto,
+    description: 'Annonce et rappel mis à jour avec succès',
+    type: JobTrackWithReminderResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 403, description: 'Access denied to this job track' })
-  @ApiResponse({ status: 404, description: 'Job track not found' })
+  @ApiResponse({ status: 400, description: 'Données d’entrée invalides' })
+  @ApiResponse({ status: 403, description: 'Accès refusé à cette annonce' })
+  @ApiResponse({ status: 404, description: 'Annonce introuvable' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  async updateJobTrack(
+  async updateJobTrackWithReminder(
     @Param('id') id: string,
-    @Body(ValidationPipe) updateJobTrackDto: UpdateJobTrackDto,
+    @Body(ValidationPipe) body: UpdateJobTrackWithReminderDto,
     @Request() req: { user: { sub: string } },
-  ) {
+    @Query('upsert') upsert?: string,
+  ): Promise<JobTrackWithReminderResponseDto> {
     const userId = req.user.sub;
-    updateJobTrackDto.id = id;
-    return this.jobTrackService.update(id, userId, updateJobTrackDto);
+    const doUpsert = upsert === 'true' || upsert === '1';
+    const result = await this.jobTrackService.updateWithReminder(
+      id,
+      userId,
+      body,
+      doUpsert,
+    );
+    return {
+      ...result.jobTrack,
+      reminder: result.reminder ?? undefined,
+    } as JobTrackWithReminderResponseDto;
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Supprimer une annonce de candidature' })
-  @ApiParam({ name: 'id', description: 'Job track ID to delete' })
+  @ApiParam({ name: 'id', description: 'Identifiant de l’annonce à supprimer' })
   @ApiResponse({
     status: 200,
-    description: 'Job track deleted successfully',
+    description: 'Annonce supprimée avec succès',
     type: JobTrackResponseDto,
   })
-  @ApiResponse({ status: 403, description: 'Access denied to this job track' })
-  @ApiResponse({ status: 404, description: 'Job track not found' })
+  @ApiResponse({ status: 403, description: 'Accès refusé à cette annonce' })
+  @ApiResponse({ status: 404, description: 'Annonce introuvable' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   async deleteJobTrack(
@@ -157,89 +176,5 @@ export class JobTrackController {
   ) {
     const userId = req.user.sub;
     return this.jobTrackService.remove(id, userId);
-  }
-
-  @Post(':id/upload-document')
-  @ApiOperation({ summary: 'Upload document attachment to job track' })
-  @ApiParam({ name: 'id', description: 'Job track ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Document uploaded successfully',
-    type: AttachmentResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid file format' })
-  @ApiResponse({ status: 403, description: 'Access denied to this job track' })
-  @ApiResponse({ status: 404, description: 'Job track not found' })
-  @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file', getMulterConfig()))
-  async uploadDocument(
-    @Param('id') jobTrackId: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Request() req: { user: { sub: string } },
-  ): Promise<AttachmentResponseDto> {
-    const userId = req.user.sub;
-
-    if (!file) {
-      throw new Error('Aucun fichier fourni');
-    }
-
-    const filePath = `/uploads/docs/${file.filename}`;
-    await this.jobTrackService.addAttachment(jobTrackId, userId, {
-      filePath,
-      originalName: file.originalname,
-      size: file.size,
-      fileType: 'document',
-    });
-
-    return {
-      filePath,
-      originalName: file.originalname,
-      size: file.size,
-      fileType: 'document',
-      uploadedAt: new Date(),
-    };
-  }
-
-  @Post(':id/upload-image')
-  @ApiOperation({ summary: 'Upload image attachment to job track' })
-  @ApiParam({ name: 'id', description: 'Job track ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Image uploaded successfully',
-    type: AttachmentResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid file format' })
-  @ApiResponse({ status: 403, description: 'Access denied to this job track' })
-  @ApiResponse({ status: 404, description: 'Job track not found' })
-  @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file', getImageMulterConfig()))
-  async uploadImage(
-    @Param('id') jobTrackId: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Request() req: { user: { sub: string } },
-  ): Promise<AttachmentResponseDto> {
-    const userId = req.user.sub;
-
-    if (!file) {
-      throw new Error('Aucun fichier fourni');
-    }
-
-    const filePath = `/uploads/images/${file.filename}`;
-    await this.jobTrackService.addAttachment(jobTrackId, userId, {
-      filePath,
-      originalName: file.originalname,
-      size: file.size,
-      fileType: 'image',
-    });
-
-    return {
-      filePath,
-      originalName: file.originalname,
-      size: file.size,
-      fileType: 'image',
-      uploadedAt: new Date(),
-    };
   }
 }
