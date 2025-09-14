@@ -53,4 +53,17 @@ export class AuthResponseDto {
     type: UserResponseDto,
   })
   user: UserResponseDto;
+
+  // Note: refresh_token est maintenant dans un cookie HttpOnly,
+  // pas dans la réponse JSON pour des raisons de sécurité
+}
+
+export class RefreshResponseDto {
+  @ApiProperty({
+    description: 'New JWT access token',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  access_token: string;
+
+  // Note: nouveau refresh_token est dans un cookie HttpOnly
 }

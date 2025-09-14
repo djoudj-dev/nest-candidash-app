@@ -36,9 +36,6 @@ export interface User {
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Map Prisma User to Service User (exclude sensitive fields when needed)
-   */
   private mapPrismaUserToUser(prismaUser: PrismaUser): User {
     return {
       id: prismaUser.id,
@@ -57,7 +54,7 @@ export class UsersService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
 
     const hashedPassword = this.hashPassword(createUserDto.password);
@@ -100,12 +97,14 @@ export class UsersService {
 
   async update(updateUserDto: UpdateUserDto): Promise<User> {
     if (!updateUserDto.id) {
-      throw new NotFoundException('User ID is required for update');
+      throw new NotFoundException(
+        "L'identifiant utilisateur est requis pour la mise à jour",
+      );
     }
 
     const user = await this.findOne(updateUserDto.id);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Utilisateur introuvable');
     }
 
     const updateData: Partial<{
@@ -139,7 +138,7 @@ export class UsersService {
   async remove(id: string): Promise<User> {
     const user = await this.findOne(id);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Utilisateur introuvable');
     }
 
     const prismaUser = await this.prisma.user.delete({
@@ -154,16 +153,10 @@ export class UsersService {
     return hashedPassword === (user.password ?? '');
   }
 
-  /**
-   * Generate a secure password reset token
-   */
   generatePasswordResetToken(): string {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  /**
-   * Set password reset token for a user
-   */
   async setPasswordResetToken(email: string): Promise<string | null> {
     const user = await this.findByEmail(email);
     if (!user) {
@@ -185,9 +178,6 @@ export class UsersService {
     return resetToken;
   }
 
-  /**
-   * Reset password with token
-   */
   async resetPasswordWithToken(
     token: string,
     newPassword: string,
@@ -219,9 +209,6 @@ export class UsersService {
     return true;
   }
 
-  /**
-   * Change password for authenticated user
-   */
   async changePassword(
     userId: string,
     currentPassword: string,
@@ -248,9 +235,6 @@ export class UsersService {
     return true;
   }
 
-  /**
-   * Update refresh token for a user
-   */
   async updateRefreshToken(
     userId: string,
     refreshToken: string,
@@ -267,9 +251,6 @@ export class UsersService {
     });
   }
 
-  /**
-   * Validate refresh token for a user
-   */
   async validateRefreshToken(
     userId: string,
     refreshToken: string,
@@ -291,9 +272,6 @@ export class UsersService {
     return hashedRefreshToken === user.refreshToken;
   }
 
-  /**
-   * Clear refresh token for a user (logout)
-   */
   async clearRefreshToken(userId: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
@@ -302,23 +280,6 @@ export class UsersService {
         refreshTokenExpires: null,
       },
     });
-  }
-
-  /**
-   * Upload CV file for a user
-   */
-  async uploadCv(userId: string, filePath: string): Promise<User> {
-    const user = await this.findOne(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const prismaUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: { cvPath: filePath },
-    });
-
-    return this.mapPrismaUserToUser(prismaUser);
   }
 
   private hashPassword(password: string): string {

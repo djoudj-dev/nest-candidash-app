@@ -9,20 +9,19 @@ datasource db {
 }
 
 model User {
-  id                     String         @id @default(uuid())
-  email                  String         @unique
-  username               String?
-  password               String
-  role                   Role           @default(USER)
-  cvPath                 String?
-  refreshToken           String?
-  refreshTokenExpires    DateTime?
-  resetPasswordToken     String?
-  resetPasswordExpires   DateTime?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  JobTrack               JobTrack[]
-  UserTracking           UserTracking[]
+  id                   String         @id @default(uuid())
+  email                String         @unique
+  username             String?
+  password             String
+  role                 Role           @default(USER)
+  refreshToken         String?
+  refreshTokenExpires  DateTime?
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  JobTrack             JobTrack[]
+  UserTracking         UserTracking[]
 
   @@map("Utilisateurs")
 }
@@ -41,7 +40,7 @@ model JobTrack {
   company      String?
   jobUrl       String?
   appliedAt    DateTime?
-  status       JobStatus    @default(APPLIED)
+  status       JobStatus     @default(APPLIED)
   contractType ContractType?
 
   notes       String?
@@ -89,21 +88,16 @@ model Reminder {
 }
 
 model UserTracking {
-  id     String @id @default(uuid())
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String
-
-  // Suivi des candidatures
-  totalApplications     Int       @default(0) // Nombre total de candidatures
-  totalRemindersSent    Int       @default(0) // Nombre total de relances envoyées
-  applicationsPerStatus Json      @default("{}") // Répartition par statut, ex: { "APPLIED": 3, "INTERVIEW": 1, "REJECTED": 2 }
-  lastActionAt          DateTime? // Dernière action utilisateur
-
-  // Metrics avancées
-  responseRate           Float? @default(0.0) // Taux de réponses reçues (0.0 à 1.0)
-  remindersEffectiveness Float? @default(0.0) // Taux de relances effectuées
-  avgResponseTime        Float? @default(0.0) // Temps moyen entre candidature et réponse (en jours)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                     String    @id @default(uuid())
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                 String
+  totalApplications      Int       @default(0) // Nombre total de candidatures
+  totalRemindersSent     Int       @default(0) // Nombre total de relances envoyées
+  applicationsPerStatus  Json      @default("{}") // Répartition par statut, ex: { "APPLIED": 3, "INTERVIEW": 1, "REJECTED": 2 }
+  lastActionAt           DateTime? // Dernière action utilisateur
+  responseRate           Float?    @default(0.0) // Taux de réponses reçues (0.0 à 1.0)
+  remindersEffectiveness Float?    @default(0.0) // Taux de relances effectuées
+  avgResponseTime        Float?    @default(0.0) // Temps moyen entre candidature et réponse (en jours)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 }

@@ -15,6 +15,13 @@ export interface AuthResponse {
   user: Omit<User, 'password'>;
 }
 
+interface JwtRefreshPayload {
+  sub: string;
+  type: 'refresh';
+  iat?: number;
+  exp?: number;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -72,7 +79,73 @@ export class AuthService {
     };
   }
 
-  async validateUser(userId: string) {
+  async validateUser(userId: string): Promise<User | null> {
     return this.usersService.findOne(userId);
+  }
+
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    // Vérifier et décoder le refresh token en isolant les erreurs JWT
+    let decoded: JwtRefreshPayload;
+    try {
+      decoded = await this.jwtService.verifyAsync<JwtRefreshPayload>(refreshToken);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (decoded.type !== 'refresh') {
+      throw new UnauthorizedException('Invalid token type');
+    }
+
+    // Validate refresh token in database
+    const isValid = await this.usersService.validateRefreshToken(
+      decoded.sub,
+      refreshToken,
+    );
+
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Get user details
+    const user = await this.usersService.findOne(decoded.sub);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Generate new tokens
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const access_token = await this.jwtService.signAsync(payload);
+
+    const refreshPayload = { sub: user.id, type: 'refresh' };
+    const refresh_token = await this.jwtService.signAsync(refreshPayload, {
+      expiresIn: '7d',
+    });
+
+    // Update refresh token in database
+    const refreshTokenExpires = new Date();
+    refreshTokenExpires.setDate(refreshTokenExpires.getDate() + 7);
+
+    await this.usersService.updateRefreshToken(
+      user.id,
+      refresh_token,
+      refreshTokenExpires,
+    );
+
+    const expires_in = 86400;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userWithoutPassword } = user;
+
+    return {
+      access_token,
+      refresh_token,
+      expires_in,
+      token_type: 'Bearer',
+      user: userWithoutPassword,
+    };
+  }
+
+  async logout(userId: string): Promise<{ message: string }> {
+    await this.usersService.clearRefreshToken(userId);
+    return { message: 'Logged out successfully' };
   }
 }

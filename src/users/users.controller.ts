@@ -10,10 +10,8 @@ import {
   ValidationPipe,
   Request,
   ForbiddenException,
-  UseInterceptors,
-  UploadedFile,
+  Res,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -21,17 +19,20 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
+import type { Response as ExpressResponse } from 'express';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserResponseDto } from '../auth/dto/auth-response.dto';
-import { UploadCvResponseDto } from './dto/upload-cv.dto';
+import {
+  AuthResponseDto,
+  UserResponseDto,
+} from '../auth/dto/auth-response.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { getMulterConfig } from '../config/multer.config';
 import { MailService } from '../mail/mail.service';
+import { AuthService } from '../auth/auth.service';
 
 @ApiTags('Users')
 @Controller('accounts')
@@ -39,13 +40,14 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly mailService: MailService,
+    private readonly authService: AuthService,
   ) {}
 
   @Get('directory')
   @ApiOperation({ summary: 'Récupérer tous les comptes utilisateur' })
   @ApiResponse({
     status: 200,
-    description: 'List of all user accounts',
+    description: 'Liste de tous les comptes utilisateurs',
     type: [UserResponseDto],
   })
   @ApiBearerAuth('JWT-auth')
@@ -61,19 +63,19 @@ export class UsersController {
 
   @Get('profile/:id')
   @ApiOperation({ summary: 'Récupérer le profil utilisateur par ID' })
-  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiParam({ name: 'id', description: 'Identifiant utilisateur' })
   @ApiResponse({
     status: 200,
-    description: 'User profile information',
+    description: 'Informations du profil utilisateur',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 404, description: 'Utilisateur introuvable' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   async getUserById(@Param('id') id: string) {
     const user = await this.usersService.findOne(id);
     if (!user) {
-      throw new Error('User not found');
+      throw new Error('Utilisateur introuvable');
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...userResponse } = user;
@@ -81,18 +83,25 @@ export class UsersController {
   }
 
   @Post('registration')
-  @ApiOperation({ summary: 'Enregistrer un nouveau compte utilisateur' })
+  @ApiOperation({
+    summary:
+      'Enregistrer un nouveau compte utilisateur et le connecter automatiquement',
+  })
   @ApiResponse({
     status: 201,
-    description: 'User account created successfully',
-    type: UserResponseDto,
+    description: 'Compte utilisateur créé et connecté avec succès',
+    type: AuthResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 409, description: 'User already exists' })
-  async createUser(@Body(ValidationPipe) createUserDto: CreateUserDto) {
+  @ApiResponse({ status: 400, description: "Données d'entrée invalides" })
+  @ApiResponse({ status: 409, description: "L'utilisateur existe déjà" })
+  async createUser(
+    @Body(ValidationPipe) createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) response: ExpressResponse,
+  ): Promise<AuthResponseDto> {
+    // Créer l'utilisateur
     const user = await this.usersService.create(createUserDto);
 
-    // Envoi de l'email de confirmation d'inscription
+    // Envoyer l'email de confirmation
     try {
       await this.mailService.sendRegistrationConfirmationEmail({
         userEmail: user.email,
@@ -100,32 +109,52 @@ export class UsersController {
         registrationDate: user.createdAt,
       });
     } catch (error) {
-      // Log l'erreur mais ne fait pas échouer la création du compte
       console.error(
         "Erreur lors de l'envoi de l'email de confirmation:",
         error,
       );
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userResponse } = user;
-    return userResponse;
+    // Connecter automatiquement l'utilisateur
+    const loginResult = await this.authService.login({
+      email: user.email,
+      password: createUserDto.password,
+    });
+
+    // Définir le refresh token dans un cookie HttpOnly
+    response.cookie('refresh_token', loginResult.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+      path: '/',
+    });
+
+    // Retourner l'access token et les données utilisateur
+    return {
+      access_token: loginResult.access_token,
+      user: loginResult.user,
+    };
   }
 
   @Put('profile-update/:id')
   @ApiOperation({ summary: 'Mettre à jour le profil utilisateur' })
-  @ApiParam({ name: 'id', description: 'User ID to update' })
+  @ApiParam({
+    name: 'id',
+    description: 'Identifiant utilisateur à mettre à jour',
+  })
   @ApiResponse({
     status: 200,
-    description: 'User profile updated successfully',
+    description: 'Profil utilisateur mis à jour avec succès',
     type: UserResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 400, description: 'Données d’entrée invalides' })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - can only update own profile',
+    description:
+      'Interdit - vous ne pouvez mettre à jour que votre propre profil',
   })
-  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 404, description: 'Utilisateur introuvable' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   async updateUser(
@@ -135,14 +164,12 @@ export class UsersController {
   ) {
     const currentUserId = req.user.sub;
 
-    // Allow user to update their own profile regardless of role
     if (currentUserId !== userId) {
       throw new ForbiddenException(
         'Vous ne pouvez modifier que votre propre profil',
       );
     }
 
-    // Set the user ID from the URL parameter
     updateUserDto.id = userId;
     const user = await this.usersService.update(updateUserDto);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -152,17 +179,17 @@ export class UsersController {
 
   @Delete('deactivation/:id')
   @ApiOperation({ summary: 'Désactiver le compte utilisateur' })
-  @ApiParam({ name: 'id', description: 'User ID to deactivate' })
+  @ApiParam({ name: 'id', description: 'Identifiant utilisateur à désactiver' })
   @ApiResponse({
     status: 200,
-    description: 'User account deactivated successfully',
+    description: 'Compte utilisateur désactivé avec succès',
     type: UserResponseDto,
   })
   @ApiResponse({
     status: 403,
-    description: 'Forbidden - can only delete own profile',
+    description: 'Interdit - vous ne pouvez supprimer que votre propre profil',
   })
-  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 404, description: 'Utilisateur introuvable' })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
   async deleteUser(
@@ -171,7 +198,6 @@ export class UsersController {
   ) {
     const currentUserId = req.user.sub;
 
-    // Allow user to delete their own profile regardless of role
     if (currentUserId !== id) {
       throw new ForbiddenException(
         'Vous ne pouvez supprimer que votre propre profil',
@@ -184,59 +210,13 @@ export class UsersController {
     return userResponse;
   }
 
-  @Post('upload-cv/:id')
-  @ApiOperation({ summary: 'Upload CV for user' })
-  @ApiParam({ name: 'id', description: 'User ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'CV uploaded successfully',
-    type: UploadCvResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid file format' })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden - can only upload own CV',
-  })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  @ApiBearerAuth('JWT-auth')
-  @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('file', getMulterConfig()))
-  async uploadCv(
-    @Param('id') userId: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Request() req: { user: { sub: string } },
-  ): Promise<UploadCvResponseDto> {
-    const currentUserId = req.user.sub;
-
-    // Allow user to upload CV only to their own profile
-    if (currentUserId !== userId) {
-      throw new ForbiddenException(
-        'Vous ne pouvez télécharger un CV que pour votre propre profil',
-      );
-    }
-
-    if (!file) {
-      throw new Error('Aucun fichier fourni');
-    }
-
-    const filePath = `/uploads/docs/${file.filename}`;
-    await this.usersService.uploadCv(userId, filePath);
-
-    return {
-      cvPath: filePath,
-      originalName: file.originalname,
-      size: file.size,
-      uploadedAt: new Date(),
-    };
-  }
-
   @Post('forgot-password')
   @ApiOperation({ summary: 'Demander une réinitialisation de mot de passe' })
   @ApiResponse({
     status: 200,
     description: 'Email de réinitialisation envoyé si le compte existe',
   })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
+  @ApiResponse({ status: 400, description: 'Données d’entrée invalides' })
   async forgotPassword(
     @Body(ValidationPipe) forgotPasswordDto: ForgotPasswordDto,
   ) {
@@ -265,7 +245,6 @@ export class UsersController {
       }
     }
 
-    // Toujours retourner success pour éviter l'énumération des emails
     return {
       message:
         'Si votre email existe, vous recevrez les instructions de réinitialisation',
