@@ -1,10 +1,12 @@
+import { Role } from '../../../generated/prisma';
+
 export interface LoginResponse {
   access_token: string;
   user: {
     id: string;
     email: string;
     username?: string;
-    role: string;
+    role: Role;
     createdAt: Date;
     updatedAt: Date;
   };
