@@ -87,7 +87,8 @@ export class AuthService {
     // Vérifier et décoder le refresh token en isolant les erreurs JWT
     let decoded: JwtRefreshPayload;
     try {
-      decoded = await this.jwtService.verifyAsync<JwtRefreshPayload>(refreshToken);
+      decoded =
+        await this.jwtService.verifyAsync<JwtRefreshPayload>(refreshToken);
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }

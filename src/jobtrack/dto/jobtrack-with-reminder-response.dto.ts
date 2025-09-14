@@ -66,13 +66,6 @@ export class JobTrackWithReminderResponseDto {
   })
   notes?: string;
 
-  @ApiProperty({
-    description: 'Pièces jointes (métadonnées)',
-    example: { cv: 'cv.pdf' },
-    nullable: true,
-  })
-  attachments?: Record<string, unknown>;
-
   @ApiProperty({ description: 'Créé le', example: '2025-01-15T08:30:00.000Z' })
   createdAt!: Date;
 

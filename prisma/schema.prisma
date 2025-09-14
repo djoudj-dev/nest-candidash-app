@@ -44,7 +44,6 @@ model JobTrack {
   contractType ContractType?
 
   notes       String?
-  attachments Json?
 
   reminders Reminder[]
 

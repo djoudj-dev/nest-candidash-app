@@ -64,13 +64,6 @@ export class JobTrackResponseDto {
   notes?: string;
 
   @ApiProperty({
-    description: 'Attachments metadata (CV, cover letter, etc.)',
-    example: { cv: 'cv_v2.pdf', coverLetter: 'cover_letter.pdf' },
-    nullable: true,
-  })
-  attachments?: Record<string, any>;
-
-  @ApiProperty({
     description: 'Date when the job track was created',
     example: '2025-01-15T08:30:00.000Z',
   })

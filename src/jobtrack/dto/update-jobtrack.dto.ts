@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsDateString,
   IsEnum,
-  IsObject,
   MinLength,
 } from 'class-validator';
 import { JobStatus, ContractType } from '../../../generated/prisma';
@@ -85,13 +84,4 @@ export class UpdateJobTrackDto {
   @IsOptional()
   @IsString({ message: 'Notes must be a string' })
   notes?: string;
-
-  @ApiProperty({
-    description: 'Attachments metadata (CV, cover letter, etc.)',
-    example: { cv: 'cv_v3.pdf', coverLetter: 'cover_letter_updated.pdf' },
-    required: false,
-  })
-  @IsOptional()
-  @IsObject({ message: 'Attachments must be an object' })
-  attachments?: Record<string, any>;
 }
