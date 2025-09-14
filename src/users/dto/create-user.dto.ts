@@ -10,37 +10,41 @@ import { Role } from '../../../generated/prisma';
 
 export class CreateUserDto {
   @ApiProperty({
-    description: 'Email address of the user',
-    example: 'user@example.com',
+    description: "Adresse e-mail de l'utilisateur",
+    example: 'utilisateur@exemple.com',
   })
-  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @IsEmail({}, { message: 'Veuillez fournir une adresse e-mail valide' })
   email: string;
 
   @ApiProperty({
-    description: 'Username for personalization (optional)',
-    example: 'john_doe',
+    description: "Nom d'utilisateur pour la personnalisation (optionnel)",
+    example: 'jean_dupont',
     required: false,
   })
   @IsOptional()
-  @IsString({ message: 'Username must be a string' })
+  @IsString({
+    message: "Le nom d'utilisateur doit être une chaîne de caractères",
+  })
   username?: string;
 
   @ApiProperty({
-    description: 'Password for the user account',
-    example: 'SecurePassword123',
+    description: 'Mot de passe pour le compte utilisateur',
+    example: 'MotDePasseSecurise123',
     minLength: 6,
   })
   @IsString()
-  @MinLength(6, { message: 'Password must be at least 6 characters long' })
+  @MinLength(6, {
+    message: 'Le mot de passe doit contenir au moins 6 caractères',
+  })
   password: string;
 
   @ApiProperty({
-    description: 'Role of the user',
+    description: "Rôle de l'utilisateur",
     enum: Role,
     example: Role.USER,
     required: false,
   })
   @IsOptional()
-  @IsEnum(Role, { message: 'Role must be either USER or ADMIN' })
+  @IsEnum(Role, { message: 'Le rôle doit être USER ou ADMIN' })
   role?: Role;
 }

@@ -12,27 +12,33 @@ import {
   ForbiddenException,
   Res,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiParam,
-} from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import type { Response as ExpressResponse } from 'express';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import {
-  AuthResponseDto,
-  UserResponseDto,
-} from '../auth/dto/auth-response.dto';
+import { AuthResponseDto } from '../auth/dto/auth-response.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { MailService } from '../mail/mail.service';
 import { AuthService } from '../auth/auth.service';
+import { UserMapper } from './mappers';
+import type { UserSafe } from './interfaces';
+import {
+  ApiUserOperation,
+  ApiAuthenticatedUserOperation,
+  ApiUserListResponse,
+  ApiUserResponse,
+  ApiRegistrationResponse,
+  ApiUserUpdateResponse,
+  ApiUserDeleteResponse,
+  ApiPasswordResetRequestResponse,
+  ApiPasswordResetResponse,
+  ApiPasswordChangeResponse,
+  ApiUserIdParam,
+} from './decorators/api-decorators';
 
 @ApiTags('Users')
 @Controller('accounts')
@@ -44,56 +50,32 @@ export class UsersController {
   ) {}
 
   @Get('directory')
-  @ApiOperation({ summary: 'Récupérer tous les comptes utilisateur' })
-  @ApiResponse({
-    status: 200,
-    description: 'Liste de tous les comptes utilisateurs',
-    type: [UserResponseDto],
-  })
-  @ApiBearerAuth('JWT-auth')
+  @ApiAuthenticatedUserOperation('Récupérer tous les comptes utilisateur')
+  @ApiUserListResponse()
   @UseGuards(JwtAuthGuard)
-  async getUsers() {
+  async getUsers(): Promise<UserSafe[]> {
     const users = await this.usersService.findAll();
-    return users.map((user) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password, ...userResponse } = user;
-      return userResponse;
-    });
+    return users.map((user) => UserMapper.mapUserToSafe(user));
   }
 
   @Get('profile/:id')
-  @ApiOperation({ summary: 'Récupérer le profil utilisateur par ID' })
-  @ApiParam({ name: 'id', description: 'Identifiant utilisateur' })
-  @ApiResponse({
-    status: 200,
-    description: 'Informations du profil utilisateur',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Utilisateur introuvable' })
-  @ApiBearerAuth('JWT-auth')
+  @ApiAuthenticatedUserOperation('Récupérer le profil utilisateur par ID')
+  @ApiUserIdParam()
+  @ApiUserResponse()
   @UseGuards(JwtAuthGuard)
-  async getUserById(@Param('id') id: string) {
+  async getUserById(@Param('id') id: string): Promise<UserSafe> {
     const user = await this.usersService.findOne(id);
     if (!user) {
       throw new Error('Utilisateur introuvable');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userResponse } = user;
-    return userResponse;
+    return UserMapper.mapUserToSafe(user);
   }
 
   @Post('registration')
-  @ApiOperation({
-    summary:
-      'Enregistrer un nouveau compte utilisateur et le connecter automatiquement',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Compte utilisateur créé et connecté avec succès',
-    type: AuthResponseDto,
-  })
-  @ApiResponse({ status: 400, description: "Données d'entrée invalides" })
-  @ApiResponse({ status: 409, description: "L'utilisateur existe déjà" })
+  @ApiUserOperation(
+    'Enregistrer un nouveau compte utilisateur et le connecter automatiquement',
+  )
+  @ApiRegistrationResponse()
   async createUser(
     @Body(ValidationPipe) createUserDto: CreateUserDto,
     @Res({ passthrough: true }) response: ExpressResponse,
@@ -138,30 +120,15 @@ export class UsersController {
   }
 
   @Put('profile-update/:id')
-  @ApiOperation({ summary: 'Mettre à jour le profil utilisateur' })
-  @ApiParam({
-    name: 'id',
-    description: 'Identifiant utilisateur à mettre à jour',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Profil utilisateur mis à jour avec succès',
-    type: UserResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Données d’entrée invalides' })
-  @ApiResponse({
-    status: 403,
-    description:
-      'Interdit - vous ne pouvez mettre à jour que votre propre profil',
-  })
-  @ApiResponse({ status: 404, description: 'Utilisateur introuvable' })
-  @ApiBearerAuth('JWT-auth')
+  @ApiAuthenticatedUserOperation('Mettre à jour le profil utilisateur')
+  @ApiUserIdParam()
+  @ApiUserUpdateResponse()
   @UseGuards(JwtAuthGuard)
   async updateUser(
     @Param('id') userId: string,
     @Body(ValidationPipe) updateUserDto: UpdateUserDto,
     @Request() req: { user: { sub: string } },
-  ) {
+  ): Promise<UserSafe> {
     const currentUserId = req.user.sub;
 
     if (currentUserId !== userId) {
@@ -172,30 +139,18 @@ export class UsersController {
 
     updateUserDto.id = userId;
     const user = await this.usersService.update(updateUserDto);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userResponse } = user;
-    return userResponse;
+    return UserMapper.mapUserToSafe(user);
   }
 
   @Delete('deactivation/:id')
-  @ApiOperation({ summary: 'Désactiver le compte utilisateur' })
-  @ApiParam({ name: 'id', description: 'Identifiant utilisateur à désactiver' })
-  @ApiResponse({
-    status: 200,
-    description: 'Compte utilisateur désactivé avec succès',
-    type: UserResponseDto,
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Interdit - vous ne pouvez supprimer que votre propre profil',
-  })
-  @ApiResponse({ status: 404, description: 'Utilisateur introuvable' })
-  @ApiBearerAuth('JWT-auth')
+  @ApiAuthenticatedUserOperation('Désactiver le compte utilisateur')
+  @ApiUserIdParam()
+  @ApiUserDeleteResponse()
   @UseGuards(JwtAuthGuard)
   async deleteUser(
     @Param('id') id: string,
     @Request() req: { user: { sub: string } },
-  ) {
+  ): Promise<UserSafe> {
     const currentUserId = req.user.sub;
 
     if (currentUserId !== id) {
@@ -205,18 +160,12 @@ export class UsersController {
     }
 
     const user = await this.usersService.remove(id);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userResponse } = user;
-    return userResponse;
+    return UserMapper.mapUserToSafe(user);
   }
 
   @Post('forgot-password')
-  @ApiOperation({ summary: 'Demander une réinitialisation de mot de passe' })
-  @ApiResponse({
-    status: 200,
-    description: 'Email de réinitialisation envoyé si le compte existe',
-  })
-  @ApiResponse({ status: 400, description: 'Données d’entrée invalides' })
+  @ApiUserOperation('Demander une réinitialisation de mot de passe')
+  @ApiPasswordResetRequestResponse()
   async forgotPassword(
     @Body(ValidationPipe) forgotPasswordDto: ForgotPasswordDto,
   ) {
@@ -245,19 +194,12 @@ export class UsersController {
       }
     }
 
-    return {
-      message:
-        'Si votre email existe, vous recevrez les instructions de réinitialisation',
-    };
+    return UserMapper.createPasswordResetRequestResponse();
   }
 
   @Post('reset-password')
-  @ApiOperation({ summary: 'Réinitialiser le mot de passe avec un token' })
-  @ApiResponse({
-    status: 200,
-    description: 'Mot de passe réinitialisé avec succès',
-  })
-  @ApiResponse({ status: 400, description: 'Token invalide ou expiré' })
+  @ApiUserOperation('Réinitialiser le mot de passe avec un token')
+  @ApiPasswordResetResponse()
   async resetPassword(
     @Body(ValidationPipe) resetPasswordDto: ResetPasswordDto,
   ) {
@@ -270,18 +212,14 @@ export class UsersController {
       throw new Error('Token invalide ou expiré');
     }
 
-    return { message: 'Mot de passe réinitialisé avec succès' };
+    return UserMapper.createPasswordResetResponse();
   }
 
   @Put('change-password')
-  @ApiOperation({ summary: 'Changer le mot de passe (utilisateur connecté)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Mot de passe modifié avec succès',
-  })
-  @ApiResponse({ status: 400, description: 'Mot de passe actuel incorrect' })
-  @ApiResponse({ status: 401, description: 'Non autorisé' })
-  @ApiBearerAuth('JWT-auth')
+  @ApiAuthenticatedUserOperation(
+    'Changer le mot de passe (utilisateur connecté)',
+  )
+  @ApiPasswordChangeResponse()
   @UseGuards(JwtAuthGuard)
   async changePassword(
     @Body(ValidationPipe) changePasswordDto: ChangePasswordDto,
@@ -299,6 +237,6 @@ export class UsersController {
       throw new Error('Mot de passe actuel incorrect');
     }
 
-    return { message: 'Mot de passe modifié avec succès' };
+    return UserMapper.createPasswordChangeResponse();
   }
 }

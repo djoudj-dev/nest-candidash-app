@@ -4,71 +4,35 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { User as PrismaUser, Role } from '../../generated/prisma';
 import * as crypto from 'crypto';
-
-export interface CreateUserDto {
-  email: string;
-  username?: string;
-  password: string;
-  role?: Role;
-}
-
-export interface UpdateUserDto {
-  id?: string;
-  email?: string;
-  username?: string;
-  password?: string;
-  role?: Role;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  username?: string;
-  role: Role;
-  createdAt: Date;
-  updatedAt: Date;
-  password?: string;
-}
+import { User, UserCreateData, UserUpdateData } from './interfaces';
+import { UserMapper } from './mappers';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  private mapPrismaUserToUser(prismaUser: PrismaUser): User {
-    return {
-      id: prismaUser.id,
-      email: prismaUser.email,
-      username: prismaUser.username ?? undefined,
-      role: prismaUser.role,
-      createdAt: prismaUser.createdAt,
-      updatedAt: prismaUser.updatedAt,
-      password: prismaUser.password, // Available for internal use
-    };
-  }
-
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserData: UserCreateData): Promise<User> {
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: createUserDto.email },
+      where: { email: createUserData.email },
     });
 
     if (existingUser) {
       throw new ConflictException('Un utilisateur avec cet email existe déjà');
     }
 
-    const hashedPassword = this.hashPassword(createUserDto.password);
+    const hashedPassword = this.hashPassword(createUserData.password);
 
     const prismaUser = await this.prisma.user.create({
       data: {
-        email: createUserDto.email,
-        username: createUserDto.username,
+        email: createUserData.email,
+        username: createUserData.username,
         password: hashedPassword,
-        role: createUserDto.role || 'USER',
+        role: createUserData.role || 'USER',
       },
     });
 
-    return this.mapPrismaUserToUser(prismaUser);
+    return UserMapper.mapPrismaUserToUser(prismaUser);
   }
 
   async findAll(): Promise<User[]> {
@@ -76,7 +40,7 @@ export class UsersService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return prismaUsers.map((user) => this.mapPrismaUserToUser(user));
+    return prismaUsers.map((user) => UserMapper.mapPrismaUserToUser(user));
   }
 
   async findOne(id: string): Promise<User | null> {
@@ -84,7 +48,7 @@ export class UsersService {
       where: { id },
     });
 
-    return prismaUser ? this.mapPrismaUserToUser(prismaUser) : null;
+    return prismaUser ? UserMapper.mapPrismaUserToUser(prismaUser) : null;
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -92,17 +56,17 @@ export class UsersService {
       where: { email },
     });
 
-    return prismaUser ? this.mapPrismaUserToUser(prismaUser) : null;
+    return prismaUser ? UserMapper.mapPrismaUserToUser(prismaUser) : null;
   }
 
-  async update(updateUserDto: UpdateUserDto): Promise<User> {
-    if (!updateUserDto.id) {
+  async update(updateUserData: UserUpdateData): Promise<User> {
+    if (!updateUserData.id) {
       throw new NotFoundException(
         "L'identifiant utilisateur est requis pour la mise à jour",
       );
     }
 
-    const user = await this.findOne(updateUserDto.id);
+    const user = await this.findOne(updateUserData.id);
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');
     }
@@ -111,28 +75,28 @@ export class UsersService {
       email: string;
       username: string;
       password: string;
-      role: typeof updateUserDto.role;
+      role: typeof updateUserData.role;
     }> = {};
 
-    if (updateUserDto.email) {
-      updateData.email = updateUserDto.email;
+    if (updateUserData.email) {
+      updateData.email = updateUserData.email;
     }
-    if (updateUserDto.username !== undefined) {
-      updateData.username = updateUserDto.username;
+    if (updateUserData.username !== undefined) {
+      updateData.username = updateUserData.username;
     }
-    if (updateUserDto.password) {
-      updateData.password = this.hashPassword(updateUserDto.password);
+    if (updateUserData.password) {
+      updateData.password = this.hashPassword(updateUserData.password);
     }
-    if (updateUserDto.role) {
-      updateData.role = updateUserDto.role;
+    if (updateUserData.role) {
+      updateData.role = updateUserData.role;
     }
 
     const prismaUser = await this.prisma.user.update({
-      where: { id: updateUserDto.id },
+      where: { id: updateUserData.id },
       data: updateData,
     });
 
-    return this.mapPrismaUserToUser(prismaUser);
+    return UserMapper.mapPrismaUserToUser(prismaUser);
   }
 
   async remove(id: string): Promise<User> {
@@ -145,7 +109,7 @@ export class UsersService {
       where: { id },
     });
 
-    return this.mapPrismaUserToUser(prismaUser);
+    return UserMapper.mapPrismaUserToUser(prismaUser);
   }
 
   validatePassword(user: User, password: string): boolean {

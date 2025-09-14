@@ -10,7 +10,8 @@ import { Role } from '../../../generated/prisma';
 
 export class UpdateUserDto {
   @ApiProperty({
-    description: 'User ID to update (automatically set from URL parameter)',
+    description:
+      'ID utilisateur à mettre à jour (défini automatiquement depuis le paramètre URL)',
     example: '123e4567-e89b-12d3-a456-426614174000',
     required: false,
   })
@@ -18,41 +19,45 @@ export class UpdateUserDto {
   id?: string;
 
   @ApiProperty({
-    description: 'New email address',
-    example: 'newemail@example.com',
+    description: 'Nouvelle adresse e-mail',
+    example: 'nouvel-email@exemple.com',
     required: false,
   })
   @IsOptional()
-  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @IsEmail({}, { message: 'Veuillez fournir une adresse e-mail valide' })
   email?: string;
 
   @ApiProperty({
-    description: 'New username for personalization',
-    example: 'new_username',
+    description: "Nouveau nom d'utilisateur pour la personnalisation",
+    example: 'nouveau_utilisateur',
     required: false,
   })
   @IsOptional()
-  @IsString({ message: 'Username must be a string' })
+  @IsString({
+    message: "Le nom d'utilisateur doit être une chaîne de caractères",
+  })
   username?: string;
 
   @ApiProperty({
-    description: 'New password',
-    example: 'NewSecurePassword123',
+    description: 'Nouveau mot de passe',
+    example: 'NouveauMotDePasseSecurise123',
     minLength: 6,
     required: false,
   })
   @IsOptional()
   @IsString()
-  @MinLength(6, { message: 'Password must be at least 6 characters long' })
+  @MinLength(6, {
+    message: 'Le mot de passe doit contenir au moins 6 caractères',
+  })
   password?: string;
 
   @ApiProperty({
-    description: 'New role',
+    description: 'Nouveau rôle',
     enum: Role,
     example: Role.ADMIN,
     required: false,
   })
   @IsOptional()
-  @IsEnum(Role, { message: 'Role must be either USER or ADMIN' })
+  @IsEnum(Role, { message: 'Le rôle doit être USER ou ADMIN' })
   role?: Role;
 }
