@@ -1,26 +1,15 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { UsersService, User } from '../users/users.service';
+import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
-
-export interface LoginDto {
-  email: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: string;
-  user: Omit<User, 'password'>;
-}
-
-interface JwtRefreshPayload {
-  sub: string;
-  type: 'refresh';
-  iat?: number;
-  exp?: number;
-}
+import {
+  User,
+  UserSafe,
+  LoginCredentials,
+  AuthResult,
+  JwtRefreshPayload,
+  LogoutResponse,
+} from './interfaces';
+import { AuthMapper } from './mappers';
 
 @Injectable()
 export class AuthService {
@@ -29,18 +18,18 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async login(loginDto: LoginDto): Promise<AuthResponse> {
-    const user = await this.usersService.findByEmail(loginDto.email);
+  async login(loginCredentials: LoginCredentials): Promise<AuthResult> {
+    const user = await this.usersService.findByEmail(loginCredentials.email);
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Identifiants invalides');
     }
 
     const isPasswordValid = this.usersService.validatePassword(
       user,
-      loginDto.password,
+      loginCredentials.password,
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Identifiants invalides');
     }
 
     const payload = { sub: user.id, email: user.email, role: user.role };
@@ -66,35 +55,34 @@ export class AuthService {
     // Token expires in 24 hours (24 * 60 * 60 = 86400 seconds)
     const expires_in = 86400;
 
-    // Remove password from user object
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userWithoutPassword } = user;
+    const userSafe = AuthMapper.mapUserToSafe(user as User);
 
     return {
       access_token,
       refresh_token,
       expires_in,
       token_type: 'Bearer',
-      user: userWithoutPassword,
+      user: userSafe,
     };
   }
 
-  async validateUser(userId: string): Promise<User | null> {
-    return this.usersService.findOne(userId);
+  async validateUser(userId: string): Promise<UserSafe | null> {
+    const user = await this.usersService.findOne(userId);
+    return user ? AuthMapper.mapUserToSafe(user as User) : null;
   }
 
-  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+  async refreshToken(refreshToken: string): Promise<AuthResult> {
     // Vérifier et décoder le refresh token en isolant les erreurs JWT
     let decoded: JwtRefreshPayload;
     try {
       decoded =
         await this.jwtService.verifyAsync<JwtRefreshPayload>(refreshToken);
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Jeton de renouvellement invalide');
     }
 
     if (decoded.type !== 'refresh') {
-      throw new UnauthorizedException('Invalid token type');
+      throw new UnauthorizedException('Type de jeton invalide');
     }
 
     // Validate refresh token in database
@@ -104,13 +92,13 @@ export class AuthService {
     );
 
     if (!isValid) {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Jeton de renouvellement invalide');
     }
 
     // Get user details
     const user = await this.usersService.findOne(decoded.sub);
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Utilisateur introuvable');
     }
 
     // Generate new tokens
@@ -133,20 +121,19 @@ export class AuthService {
     );
 
     const expires_in = 86400;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...userWithoutPassword } = user;
+    const userSafe = AuthMapper.mapUserToSafe(user as User);
 
     return {
       access_token,
       refresh_token,
       expires_in,
       token_type: 'Bearer',
-      user: userWithoutPassword,
+      user: userSafe,
     };
   }
 
-  async logout(userId: string): Promise<{ message: string }> {
+  async logout(userId: string): Promise<LogoutResponse> {
     await this.usersService.clearRefreshToken(userId);
-    return { message: 'Logged out successfully' };
+    return AuthMapper.createLogoutResponse('Déconnexion réussie');
   }
 }

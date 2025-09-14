@@ -3,18 +3,20 @@ import { IsEmail, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({
-    description: 'Email address for authentication',
-    example: 'user@example.com',
+    description: "Adresse e-mail pour l'authentification",
+    example: 'utilisateur@exemple.com',
   })
-  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @IsEmail({}, { message: 'Veuillez fournir une adresse e-mail valide' })
   email: string;
 
   @ApiProperty({
-    description: 'Password for authentication',
-    example: 'SecurePassword123',
+    description: "Mot de passe pour l'authentification",
+    example: 'MotDePasseSecurise123',
     minLength: 6,
   })
   @IsString()
-  @MinLength(6, { message: 'Password must be at least 6 characters long' })
+  @MinLength(6, {
+    message: 'Le mot de passe doit contenir au moins 6 caractères',
+  })
   password: string;
 }

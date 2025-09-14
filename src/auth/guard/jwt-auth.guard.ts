@@ -5,13 +5,7 @@ import {
 } from '@nestjs/common';
 import { CanActivate } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-
-interface JwtPayload {
-  sub: string;
-  email: string;
-  iat?: number;
-  exp?: number;
-}
+import { JwtPayload } from '../interfaces';
 
 interface RequestWithUser extends Request {
   user?: JwtPayload;
@@ -26,7 +20,7 @@ export class JwtAuthGuard implements CanActivate {
 
     const token = this.extractTokenFromHeader(request);
     if (!token) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException("Jeton d'authentification manquant");
     }
 
     try {
@@ -34,7 +28,7 @@ export class JwtAuthGuard implements CanActivate {
         secret: process.env.JWT_SECRET || 'secret',
       });
     } catch {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException("Jeton d'authentification invalide");
     }
     return true;
   }

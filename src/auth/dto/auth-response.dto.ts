@@ -3,39 +3,39 @@ import { Role } from '../../../generated/prisma';
 
 export class UserResponseDto {
   @ApiProperty({
-    description: 'User unique identifier',
+    description: "Identifiant unique de l'utilisateur",
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   id: string;
 
   @ApiProperty({
-    description: 'User email address',
-    example: 'user@example.com',
+    description: "Adresse e-mail de l'utilisateur",
+    example: 'utilisateur@exemple.com',
   })
   email: string;
 
   @ApiProperty({
-    description: 'Username for personalization',
-    example: 'john_doe',
+    description: "Nom d'utilisateur pour la personnalisation",
+    example: 'jean_dupont',
     required: false,
   })
   username?: string;
 
   @ApiProperty({
-    description: 'User role',
+    description: "Rôle de l'utilisateur",
     enum: Role,
     example: Role.USER,
   })
   role: Role;
 
   @ApiProperty({
-    description: 'User creation date',
+    description: "Date de création de l'utilisateur",
     example: '2024-01-01T00:00:00.000Z',
   })
   createdAt: Date;
 
   @ApiProperty({
-    description: 'User last update date',
+    description: "Date de dernière mise à jour de l'utilisateur",
     example: '2024-01-01T00:00:00.000Z',
   })
   updatedAt: Date;
@@ -43,13 +43,13 @@ export class UserResponseDto {
 
 export class AuthResponseDto {
   @ApiProperty({
-    description: 'JWT access token',
+    description: "Jeton d'accès JWT",
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   access_token: string;
 
   @ApiProperty({
-    description: 'Authenticated user information',
+    description: "Informations de l'utilisateur authentifié",
     type: UserResponseDto,
   })
   user: UserResponseDto;
@@ -60,7 +60,7 @@ export class AuthResponseDto {
 
 export class RefreshResponseDto {
   @ApiProperty({
-    description: 'New JWT access token',
+    description: "Nouveau jeton d'accès JWT",
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
   access_token: string;

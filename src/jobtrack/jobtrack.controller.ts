@@ -20,7 +20,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { JobTrackService } from './jobtrack.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard';
 import { JobTrackResponseDto } from './dto/jobtrack-response.dto';
 import { JobStatus } from '../../generated/prisma';
 import { CreateJobTrackWithReminderDto } from './dto/create-jobtrack-with-reminder.dto';
