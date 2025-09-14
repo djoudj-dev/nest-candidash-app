@@ -4,56 +4,28 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  JobTrack as PrismaJobTrack,
-  JobStatus,
-  ContractType,
-} from '../../generated/prisma';
+import { JobStatus, ContractType } from '../../generated/prisma';
 import { CreateJobTrackDto } from './dto/create-jobtrack.dto';
 import { UpdateJobTrackDto } from './dto/update-jobtrack.dto';
 import type { Prisma } from '../../generated/prisma';
-
-export interface JobTrack {
-  id: string;
-  userId: string;
-  title: string;
-  company?: string;
-  jobUrl?: string;
-  appliedAt?: Date;
-  status: JobStatus;
-  contractType?: ContractType;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import {
+  JobTrack,
+  JobTrackCreateData,
+  JobTrackUpdateData,
+  Reminder,
+  ReminderCreateData,
+  ReminderUpdateData,
+  JobTrackWithReminder,
+  JobTrackWithOptionalReminder,
+} from './interfaces';
+import { JobTrackMapper, ReminderMapper } from './mappers';
 
 @Injectable()
 export class JobTrackService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Map Prisma JobTrack to Service JobTrack
-   */
-  private mapPrismaJobTrackToJobTrack(
-    prismaJobTrack: PrismaJobTrack,
-  ): JobTrack {
-    return {
-      id: prismaJobTrack.id,
-      userId: prismaJobTrack.userId,
-      title: prismaJobTrack.title,
-      company: prismaJobTrack.company ?? undefined,
-      jobUrl: prismaJobTrack.jobUrl ?? undefined,
-      appliedAt: prismaJobTrack.appliedAt ?? undefined,
-      status: prismaJobTrack.status,
-      contractType: prismaJobTrack.contractType ?? undefined,
-      notes: prismaJobTrack.notes ?? undefined,
-      createdAt: prismaJobTrack.createdAt,
-      updatedAt: prismaJobTrack.updatedAt,
-    };
-  }
-
-  /**
-   * Create a new job track for a user
+   * Crée un nouveau suivi de candidature pour un utilisateur
    */
   async create(
     userId: string,
@@ -74,11 +46,11 @@ export class JobTrackService {
       },
     });
 
-    return this.mapPrismaJobTrackToJobTrack(prismaJobTrack);
+    return JobTrackMapper.mapPrismaJobTrackToJobTrack(prismaJobTrack);
   }
 
   /**
-   * Get all job tracks for a user
+   * Récupère tous les suivis de candidature d’un utilisateur
    */
   async findAllByUser(userId: string): Promise<JobTrack[]> {
     const prismaJobTracks = await this.prisma.jobTrack.findMany({
@@ -87,12 +59,12 @@ export class JobTrackService {
     });
 
     return prismaJobTracks.map((jobTrack) =>
-      this.mapPrismaJobTrackToJobTrack(jobTrack),
+      JobTrackMapper.mapPrismaJobTrackToJobTrack(jobTrack),
     );
   }
 
   /**
-   * Get a specific job track by ID
+   * Récupère un suivi de candidature spécifique par son ID
    */
   async findOne(id: string, userId: string): Promise<JobTrack | null> {
     const prismaJobTrack = await this.prisma.jobTrack.findUnique({
@@ -103,18 +75,18 @@ export class JobTrackService {
       return null;
     }
 
-    // Check ownership
+    // Vérification de la propriété
     if (prismaJobTrack.userId !== userId) {
       throw new ForbiddenException(
         "Vous ne pouvez accéder qu'à vos propres annonces",
       );
     }
 
-    return this.mapPrismaJobTrackToJobTrack(prismaJobTrack);
+    return JobTrackMapper.mapPrismaJobTrackToJobTrack(prismaJobTrack);
   }
 
   /**
-   * Update a job track
+   * Met à jour un suivi de candidature
    */
   async update(
     id: string,
@@ -145,12 +117,12 @@ export class JobTrackService {
             notes: updateJobTrackDto.notes,
           },
         });
-        return this.mapPrismaJobTrackToJobTrack(prismaJobTrackCreate);
+        return JobTrackMapper.mapPrismaJobTrackToJobTrack(prismaJobTrackCreate);
       }
       throw new NotFoundException('Annonce introuvable');
     }
 
-    // Check ownership
+    // Vérification de la propriété
     if (existingJobTrack.userId !== userId) {
       throw new ForbiddenException(
         'Vous ne pouvez modifier que vos propres annonces',
@@ -167,40 +139,33 @@ export class JobTrackService {
       notes: string;
     }> = {};
 
-    if (updateJobTrackDto.title !== undefined) {
+    if (updateJobTrackDto.title !== undefined)
       updateData.title = updateJobTrackDto.title;
-    }
-    if (updateJobTrackDto.company !== undefined) {
+    if (updateJobTrackDto.company !== undefined)
       updateData.company = updateJobTrackDto.company;
-    }
-    if (updateJobTrackDto.jobUrl !== undefined) {
+    if (updateJobTrackDto.jobUrl !== undefined)
       updateData.jobUrl = updateJobTrackDto.jobUrl;
-    }
-    if (updateJobTrackDto.appliedAt !== undefined) {
+    if (updateJobTrackDto.appliedAt !== undefined)
       updateData.appliedAt = updateJobTrackDto.appliedAt
         ? new Date(updateJobTrackDto.appliedAt)
         : undefined;
-    }
-    if (updateJobTrackDto.status !== undefined) {
+    if (updateJobTrackDto.status !== undefined)
       updateData.status = updateJobTrackDto.status;
-    }
-    if (updateJobTrackDto.contractType !== undefined) {
+    if (updateJobTrackDto.contractType !== undefined)
       updateData.contractType = updateJobTrackDto.contractType;
-    }
-    if (updateJobTrackDto.notes !== undefined) {
+    if (updateJobTrackDto.notes !== undefined)
       updateData.notes = updateJobTrackDto.notes;
-    }
 
     const prismaJobTrack = await this.prisma.jobTrack.update({
       where: { id },
       data: updateData,
     });
 
-    return this.mapPrismaJobTrackToJobTrack(prismaJobTrack);
+    return JobTrackMapper.mapPrismaJobTrackToJobTrack(prismaJobTrack);
   }
 
   /**
-   * Delete a job track
+   * Supprime un suivi de candidature
    */
   async remove(id: string, userId: string): Promise<JobTrack> {
     const existingJobTrack = await this.prisma.jobTrack.findUnique({
@@ -211,7 +176,7 @@ export class JobTrackService {
       throw new NotFoundException('Annonce introuvable');
     }
 
-    // Check ownership
+    // Vérification de la propriété
     if (existingJobTrack.userId !== userId) {
       throw new ForbiddenException(
         'Vous ne pouvez supprimer que vos propres annonces',
@@ -222,40 +187,16 @@ export class JobTrackService {
       where: { id },
     });
 
-    return this.mapPrismaJobTrackToJobTrack(prismaJobTrack);
+    return JobTrackMapper.mapPrismaJobTrackToJobTrack(prismaJobTrack);
   }
 
   /**
-   * Create a new job track along with its initial reminder in a single transaction
+   * Crée un suivi de candidature et son rappel initial dans une seule transaction
    */
   async createWithReminder(
     userId: string,
-    dto: {
-      title: string;
-      company?: string;
-      jobUrl?: string;
-      appliedAt?: string;
-      status?: JobStatus;
-      contractType?: ContractType;
-      notes?: string;
-      frequency: number;
-      nextReminderAt: string;
-      isActive?: boolean;
-    },
-  ): Promise<{
-    jobTrack: JobTrack;
-    reminder: {
-      id: string;
-      jobTrackId: string;
-      frequency: number;
-      nextReminderAt: Date;
-      lastSentAt: Date | null;
-      isActive: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-    };
-  }> {
-    // Use interactive transaction to create JobTrack then Reminder with the created jobTrackId
+    dto: JobTrackCreateData & ReminderCreateData,
+  ): Promise<JobTrackWithReminder> {
     return this.prisma.$transaction(async (tx) => {
       const createdJobTrack = await tx.jobTrack.create({
         data: {
@@ -280,60 +221,27 @@ export class JobTrackService {
       });
 
       return {
-        jobTrack: this.mapPrismaJobTrackToJobTrack(createdJobTrack),
-        reminder: {
-          id: createdReminder.id,
-          jobTrackId: createdReminder.jobTrackId,
-          frequency: createdReminder.frequency,
-          nextReminderAt: createdReminder.nextReminderAt,
-          lastSentAt: createdReminder.lastSentAt ?? null,
-          isActive: createdReminder.isActive,
-          createdAt: createdReminder.createdAt,
-          updatedAt: createdReminder.updatedAt,
-        },
+        jobTrack: JobTrackMapper.mapPrismaJobTrackToJobTrack(createdJobTrack),
+        reminder: ReminderMapper.mapPrismaReminderToReminder(createdReminder),
       };
     });
   }
 
   /**
-   * Update a job track and its reminder in one call (with optional upsert)
+   * Met à jour un suivi de candidature et son rappel en un seul appel (upsert optionnel)
    */
   async updateWithReminder(
     id: string,
     userId: string,
-    dto: {
-      title?: string;
-      company?: string;
-      jobUrl?: string;
-      appliedAt?: string;
-      status?: JobStatus;
-      contractType?: ContractType;
-      notes?: string;
-      frequency?: number;
-      nextReminderAt?: string;
-      isActive?: boolean;
-    },
+    dto: JobTrackUpdateData & ReminderUpdateData,
     upsert = false,
-  ): Promise<{
-    jobTrack: JobTrack;
-    reminder: {
-      id: string;
-      jobTrackId: string;
-      frequency: number;
-      nextReminderAt: Date;
-      lastSentAt: Date | null;
-      isActive: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-    } | null;
-  }> {
+  ): Promise<JobTrackWithOptionalReminder> {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.jobTrack.findUnique({ where: { id } });
 
       if (!existing) {
-        if (!upsert) {
-          throw new NotFoundException('Annonce introuvable');
-        }
+        if (!upsert) throw new NotFoundException('Annonce introuvable');
+
         const createdJob = await tx.jobTrack.create({
           data: {
             id,
@@ -348,17 +256,8 @@ export class JobTrackService {
           },
         });
 
-        // To "do exactly what POST with-reminder does", we create a reminder if the data is provided
-        let reminder = null as null | {
-          id: string;
-          jobTrackId: string;
-          frequency: number;
-          nextReminderAt: Date;
-          lastSentAt: Date | null;
-          isActive: boolean;
-          createdAt: Date;
-          updatedAt: Date;
-        };
+        // Création du rappel si les données sont fournies
+        let reminder: Reminder | null = null;
         if (dto.frequency !== undefined && dto.nextReminderAt) {
           const createdRem = await tx.reminder.create({
             data: {
@@ -368,20 +267,11 @@ export class JobTrackService {
               isActive: dto.isActive ?? true,
             },
           });
-          reminder = {
-            id: createdRem.id,
-            jobTrackId: createdRem.jobTrackId,
-            frequency: createdRem.frequency,
-            nextReminderAt: createdRem.nextReminderAt,
-            lastSentAt: createdRem.lastSentAt ?? null,
-            isActive: createdRem.isActive,
-            createdAt: createdRem.createdAt,
-            updatedAt: createdRem.updatedAt,
-          };
+          reminder = ReminderMapper.mapPrismaReminderToReminder(createdRem);
         }
 
         return {
-          jobTrack: this.mapPrismaJobTrackToJobTrack(createdJob),
+          jobTrack: JobTrackMapper.mapPrismaJobTrackToJobTrack(createdJob),
           reminder,
         };
       }
@@ -410,7 +300,7 @@ export class JobTrackService {
         ? await tx.jobTrack.update({ where: { id }, data: updateData })
         : existing;
 
-      // Update or create reminder if reminder fields provided
+      // Mise à jour ou création du rappel si les champs sont fournis
       let reminderEntity = await tx.reminder.findFirst({
         where: { jobTrackId: id },
       });
@@ -452,34 +342,25 @@ export class JobTrackService {
       }
 
       return {
-        jobTrack: this.mapPrismaJobTrackToJobTrack(updated),
+        jobTrack: JobTrackMapper.mapPrismaJobTrackToJobTrack(updated),
         reminder: reminderEntity
-          ? {
-              id: reminderEntity.id,
-              jobTrackId: reminderEntity.jobTrackId,
-              frequency: reminderEntity.frequency,
-              nextReminderAt: reminderEntity.nextReminderAt,
-              lastSentAt: reminderEntity.lastSentAt ?? null,
-              isActive: reminderEntity.isActive,
-              createdAt: reminderEntity.createdAt,
-              updatedAt: reminderEntity.updatedAt,
-            }
+          ? ReminderMapper.mapPrismaReminderToReminder(reminderEntity)
           : null,
       };
     });
   }
 
+  /**
+   * Récupère tous les suivis de candidature d’un utilisateur selon leur statut
+   */
   async findByStatus(userId: string, status: JobStatus): Promise<JobTrack[]> {
     const prismaJobTracks = await this.prisma.jobTrack.findMany({
-      where: {
-        userId,
-        status,
-      },
+      where: { userId, status },
       orderBy: { createdAt: 'desc' },
     });
 
     return prismaJobTracks.map((jobTrack) =>
-      this.mapPrismaJobTrackToJobTrack(jobTrack),
+      JobTrackMapper.mapPrismaJobTrackToJobTrack(jobTrack),
     );
   }
 }

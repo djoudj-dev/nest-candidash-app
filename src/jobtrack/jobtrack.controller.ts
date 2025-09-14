@@ -26,6 +26,11 @@ import { JobStatus } from '../../generated/prisma';
 import { CreateJobTrackWithReminderDto } from './dto/create-jobtrack-with-reminder.dto';
 import { JobTrackWithReminderResponseDto } from './dto/jobtrack-with-reminder-response.dto';
 import { UpdateJobTrackWithReminderDto } from './dto/update-jobtrack-with-reminder.dto';
+import type { AuthenticatedUser } from './interfaces';
+import {
+  ApiJobTrackOperation,
+  ApiJobTrackWithReminderResponse,
+} from './decorators/api-decorators';
 
 @ApiTags('JobTrack')
 @Controller('jobtrack')
@@ -33,21 +38,17 @@ export class JobTrackController {
   constructor(private readonly jobTrackService: JobTrackService) {}
 
   @Post('with-reminder')
-  @ApiOperation({
-    summary:
-      'Créer une annonce et son rappel initial en un seul POST (authentifié)',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Annonce et rappel initial créés avec succès',
-    type: JobTrackWithReminderResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Données d’entrée invalides' })
-  @ApiBearerAuth('JWT-auth')
+  @ApiJobTrackOperation(
+    'Créer une annonce et son rappel initial en un seul POST',
+  )
+  @ApiJobTrackWithReminderResponse(
+    201,
+    'Annonce et rappel initial créés avec succès',
+  )
   @UseGuards(JwtAuthGuard)
   async createJobTrackWithReminder(
     @Body(ValidationPipe) body: CreateJobTrackWithReminderDto,
-    @Request() req: { user: { sub: string } },
+    @Request() req: AuthenticatedUser,
   ): Promise<JobTrackWithReminderResponseDto> {
     const userId = req.user.sub;
     const result = await this.jobTrackService.createWithReminder(userId, body);
@@ -68,7 +69,7 @@ export class JobTrackController {
   })
   @ApiBearerAuth('JWT-auth')
   @UseGuards(JwtAuthGuard)
-  async getUserJobTracks(@Request() req: { user: { sub: string } }) {
+  async getUserJobTracks(@Request() req: AuthenticatedUser) {
     const userId = req.user.sub;
     return this.jobTrackService.findAllByUser(userId);
   }

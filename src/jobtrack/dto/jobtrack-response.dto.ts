@@ -3,53 +3,54 @@ import { JobStatus, ContractType } from '../../../generated/prisma';
 
 export class JobTrackResponseDto {
   @ApiProperty({
-    description: 'Unique identifier for the job track',
+    description: 'Identifiant unique du suivi de candidature',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   id: string;
 
   @ApiProperty({
-    description: 'User ID who owns this job track',
+    description:
+      'Identifiant de l’utilisateur propriétaire de ce suivi de candidature',
     example: '456e7890-e89b-12d3-a456-426614174001',
   })
   userId: string;
 
   @ApiProperty({
-    description: 'Job title or position name',
-    example: 'Senior Full Stack Developer',
+    description: 'Intitulé du poste ou nom de la fonction',
+    example: 'Développeur Full Stack Senior',
   })
   title: string;
 
   @ApiProperty({
-    description: 'Company name',
+    description: 'Nom de l’entreprise',
     example: 'Tech Company Inc.',
     nullable: true,
   })
   company?: string;
 
   @ApiProperty({
-    description: 'URL to the job posting',
-    example: 'https://example.com/jobs/developer',
+    description: 'URL de l’offre d’emploi',
+    example: 'https://exemple.com/jobs/developpeur',
     nullable: true,
   })
   jobUrl?: string;
 
   @ApiProperty({
-    description: 'Date when application was submitted',
+    description: 'Date de soumission de la candidature',
     example: '2025-01-15T10:30:00.000Z',
     nullable: true,
   })
   appliedAt?: Date;
 
   @ApiProperty({
-    description: 'Current status of the job application',
+    description: 'Statut actuel de la candidature',
     enum: JobStatus,
     example: JobStatus.APPLIED,
   })
   status: JobStatus;
 
   @ApiProperty({
-    description: 'Type of contract for the job posting',
+    description: 'Type de contrat proposé pour le poste',
     enum: ContractType,
     example: ContractType.CDI,
     nullable: true,
@@ -57,20 +58,20 @@ export class JobTrackResponseDto {
   contractType?: ContractType;
 
   @ApiProperty({
-    description: 'Additional notes about the job application',
-    example: 'Found through LinkedIn, contacted recruiter directly',
+    description: 'Notes supplémentaires concernant la candidature',
+    example: 'Trouvé via LinkedIn, contact direct avec le recruteur',
     nullable: true,
   })
   notes?: string;
 
   @ApiProperty({
-    description: 'Date when the job track was created',
+    description: 'Date de création du suivi de candidature',
     example: '2025-01-15T08:30:00.000Z',
   })
   createdAt: Date;
 
   @ApiProperty({
-    description: 'Date when the job track was last updated',
+    description: 'Date de dernière mise à jour du suivi de candidature',
     example: '2025-01-15T14:20:00.000Z',
   })
   updatedAt: Date;

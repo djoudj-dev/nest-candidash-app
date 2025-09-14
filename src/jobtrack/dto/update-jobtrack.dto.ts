@@ -10,7 +10,8 @@ import { JobStatus, ContractType } from '../../../generated/prisma';
 
 export class UpdateJobTrackDto {
   @ApiProperty({
-    description: 'JobTrack ID to update (automatically set from URL parameter)',
+    description:
+      "Identifiant du suivi de candidature à mettre à jour (défini automatiquement depuis le paramètre d'URL)",
     example: '123e4567-e89b-12d3-a456-426614174000',
     required: false,
   })
@@ -18,70 +19,77 @@ export class UpdateJobTrackDto {
   id?: string;
 
   @ApiProperty({
-    description: 'Job title or position name',
-    example: 'Senior Full Stack Developer',
+    description: 'Intitulé du poste ou nom de la fonction',
+    example: 'Développeur Full Stack Senior',
     required: false,
   })
   @IsOptional()
-  @IsString({ message: 'Title must be a string' })
-  @MinLength(1, { message: 'Title cannot be empty' })
+  @IsString({ message: 'Le titre doit être une chaîne de caractères' })
+  @MinLength(1, { message: 'Le titre ne peut pas être vide' })
   title?: string;
 
   @ApiProperty({
-    description: 'Company name',
+    description: "Nom de l'entreprise",
     example: 'Tech Company Inc.',
     required: false,
   })
   @IsOptional()
-  @IsString({ message: 'Company must be a string' })
+  @IsString({
+    message: 'Le nom de l’entreprise doit être une chaîne de caractères',
+  })
   company?: string;
 
   @ApiProperty({
-    description: 'URL to the job posting',
-    example: 'https://example.com/jobs/developer',
+    description: "URL de l'offre d'emploi",
+    example: 'https://exemple.com/jobs/developpeur',
     required: false,
   })
   @IsOptional()
-  @IsString({ message: 'Job URL must be a string' })
+  @IsString({ message: 'L’URL de l’offre doit être une chaîne de caractères' })
   jobUrl?: string;
 
   @ApiProperty({
-    description: 'Date when application was submitted',
+    description: 'Date de soumission de la candidature',
     example: '2025-01-15T10:30:00Z',
     required: false,
   })
   @IsOptional()
-  @IsDateString({}, { message: 'Applied date must be a valid ISO date string' })
+  @IsDateString(
+    {},
+    { message: 'La date de candidature doit être une date ISO valide' },
+  )
   appliedAt?: string;
 
   @ApiProperty({
-    description: 'Current status of the job application',
+    description: 'Statut actuel de la candidature',
     enum: JobStatus,
     example: JobStatus.PENDING,
     required: false,
   })
   @IsOptional()
-  @IsEnum(JobStatus, { message: 'Status must be a valid job status' })
+  @IsEnum(JobStatus, {
+    message: 'Le statut doit être un statut de candidature valide',
+  })
   status?: JobStatus;
 
   @ApiProperty({
-    description: 'Type of contract for the job posting',
+    description: 'Type de contrat proposé pour le poste',
     enum: ContractType,
     example: ContractType.CDI,
     required: false,
   })
   @IsOptional()
   @IsEnum(ContractType, {
-    message: 'Contract type must be a valid contract type',
+    message: 'Le type de contrat doit être un type de contrat valide',
   })
   contractType?: ContractType;
 
   @ApiProperty({
-    description: 'Additional notes about the job application',
-    example: 'Updated with interview feedback',
+    description: 'Notes supplémentaires concernant la candidature',
+    example: 'Mise à jour avec les retours de l’entretien',
     required: false,
   })
   @IsOptional()
-  @IsString({ message: 'Notes must be a string' })
+  @IsString({ message: 'Les notes doivent être une chaîne de caractères' })
   notes?: string;
 }

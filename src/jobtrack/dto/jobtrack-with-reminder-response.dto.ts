@@ -2,57 +2,57 @@ import { ApiProperty } from '@nestjs/swagger';
 import { ContractType, JobStatus } from '../../../generated/prisma';
 
 /**
- * DTO de réponse combinée Annonce + Rappel créé.
+ * DTO de réponse combinée : Annonce (JobTrack) + Rappel (Reminder).
  */
 export class JobTrackWithReminderResponseDto {
   @ApiProperty({
-    description: "ID de l'annonce",
+    description: "Identifiant unique de l'annonce",
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   id!: string;
 
   @ApiProperty({
-    description: "ID de l'utilisateur propriétaire",
+    description: "Identifiant de l'utilisateur propriétaire",
     example: '456e7890-e89b-12d3-a456-426614174001',
   })
   userId!: string;
 
   @ApiProperty({
-    description: "Titre de l'annonce",
-    example: 'Senior Full Stack Developer',
+    description: 'Intitulé du poste ou nom de la fonction',
+    example: 'Développeur Full Stack Senior',
   })
   title!: string;
 
   @ApiProperty({
-    description: 'Entreprise',
+    description: "Nom de l'entreprise",
     example: 'Tech Company Inc.',
     nullable: true,
   })
   company?: string;
 
   @ApiProperty({
-    description: "URL de l'annonce",
-    example: 'https://example.com/jobs/developer',
+    description: "URL de l'offre d'emploi",
+    example: 'https://exemple.com/jobs/developpeur',
     nullable: true,
   })
   jobUrl?: string;
 
   @ApiProperty({
-    description: 'Date de candidature',
+    description: 'Date de soumission de la candidature',
     example: '2025-01-15T10:30:00.000Z',
     nullable: true,
   })
   appliedAt?: Date;
 
   @ApiProperty({
-    description: 'Statut',
+    description: 'Statut actuel de la candidature',
     enum: JobStatus,
     example: JobStatus.APPLIED,
   })
   status!: JobStatus;
 
   @ApiProperty({
-    description: 'Type de contrat',
+    description: 'Type de contrat proposé',
     enum: ContractType,
     example: ContractType.CDI,
     nullable: true,
@@ -60,23 +60,26 @@ export class JobTrackWithReminderResponseDto {
   contractType?: ContractType;
 
   @ApiProperty({
-    description: 'Notes',
-    example: 'Contacté par le recruteur',
+    description: 'Notes supplémentaires concernant la candidature',
+    example: 'Contacté directement par le recruteur',
     nullable: true,
   })
   notes?: string;
 
-  @ApiProperty({ description: 'Créé le', example: '2025-01-15T08:30:00.000Z' })
+  @ApiProperty({
+    description: 'Date de création du suivi de candidature',
+    example: '2025-01-15T08:30:00.000Z',
+  })
   createdAt!: Date;
 
   @ApiProperty({
-    description: 'Mis à jour le',
+    description: 'Date de dernière mise à jour du suivi de candidature',
     example: '2025-01-15T14:20:00.000Z',
   })
   updatedAt!: Date;
 
   @ApiProperty({
-    description: 'Rappel initial créé pour cette annonce',
+    description: 'Rappel initial associé à cette annonce',
     example: {
       id: '789e0123-e89b-12d3-a456-426614174002',
       jobTrackId: '123e4567-e89b-12d3-a456-426614174000',

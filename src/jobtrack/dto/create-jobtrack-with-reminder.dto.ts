@@ -10,28 +10,27 @@ import { CreateJobTrackDto } from './create-jobtrack.dto';
 
 /**
  * DTO de création combinée d'une annonce (JobTrack) avec rappel initial (Reminder).
- * Le code est en anglais, la documentation en français.
  *
- * Mutualisation: hérite de CreateJobTrackDto pour éviter la duplication
+ * Mutualisation : hérite de CreateJobTrackDto pour éviter la duplication
  * des champs de l'annonce, puis ajoute les champs du rappel.
  */
 export class CreateJobTrackWithReminderDto extends CreateJobTrackDto {
   @ApiProperty({
-    description: 'Fréquence du rappel (jours)',
+    description: 'Fréquence du rappel (en jours)',
     example: 7,
     minimum: 1,
   })
-  @IsInt({ message: 'Frequency must be an integer' })
-  @Min(1, { message: 'Frequency must be at least 1 day' })
+  @IsInt({ message: 'La fréquence doit être un entier' })
+  @Min(1, { message: 'La fréquence doit être d’au moins 1 jour' })
   frequency!: number;
 
   @ApiProperty({
-    description: 'Prochaine date/heure de rappel (ISO string)',
+    description: 'Prochaine date/heure du rappel (au format ISO)',
     example: '2025-01-22T10:00:00Z',
   })
   @IsDateString(
     {},
-    { message: 'Next reminder must be a valid ISO date string' },
+    { message: 'La prochaine date de rappel doit être une date ISO valide' },
   )
   nextReminderAt!: string;
 
@@ -41,6 +40,6 @@ export class CreateJobTrackWithReminderDto extends CreateJobTrackDto {
     required: false,
   })
   @IsOptional()
-  @IsBoolean({ message: 'isActive must be a boolean' })
+  @IsBoolean({ message: 'Le champ isActive doit être un booléen' })
   isActive?: boolean;
 }
