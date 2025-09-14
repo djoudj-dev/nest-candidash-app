@@ -11,7 +11,7 @@ import {
 } from '../../generated/prisma';
 import { CreateJobTrackDto } from './dto/create-jobtrack.dto';
 import { UpdateJobTrackDto } from './dto/update-jobtrack.dto';
-import * as crypto from 'crypto';
+import type { Prisma } from '../../generated/prisma';
 
 export interface JobTrack {
   id: string;
@@ -23,7 +23,6 @@ export interface JobTrack {
   status: JobStatus;
   contractType?: ContractType;
   notes?: string;
-  attachments?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,9 +47,6 @@ export class JobTrackService {
       status: prismaJobTrack.status,
       contractType: prismaJobTrack.contractType ?? undefined,
       notes: prismaJobTrack.notes ?? undefined,
-      attachments: prismaJobTrack.attachments as
-        | Record<string, any>
-        | undefined,
       createdAt: prismaJobTrack.createdAt,
       updatedAt: prismaJobTrack.updatedAt,
     };
@@ -75,7 +71,6 @@ export class JobTrackService {
         status: createJobTrackDto.status || 'APPLIED',
         contractType: createJobTrackDto.contractType,
         notes: createJobTrackDto.notes,
-        attachments: createJobTrackDto.attachments || undefined,
       },
     });
 
@@ -125,13 +120,34 @@ export class JobTrackService {
     id: string,
     userId: string,
     updateJobTrackDto: UpdateJobTrackDto,
+    upsert = false,
   ): Promise<JobTrack> {
     const existingJobTrack = await this.prisma.jobTrack.findUnique({
       where: { id },
     });
 
     if (!existingJobTrack) {
-      throw new NotFoundException('JobTrack not found');
+      if (upsert) {
+        const prismaJobTrackCreate = await this.prisma.jobTrack.create({
+          data: {
+            id,
+            userId,
+            title: updateJobTrackDto.title ?? 'New Job',
+            company: updateJobTrackDto.company,
+            jobUrl: updateJobTrackDto.jobUrl,
+            appliedAt:
+              updateJobTrackDto.appliedAt !== undefined &&
+              updateJobTrackDto.appliedAt
+                ? new Date(updateJobTrackDto.appliedAt)
+                : undefined,
+            status: updateJobTrackDto.status ?? 'APPLIED',
+            contractType: updateJobTrackDto.contractType,
+            notes: updateJobTrackDto.notes,
+          },
+        });
+        return this.mapPrismaJobTrackToJobTrack(prismaJobTrackCreate);
+      }
+      throw new NotFoundException('Annonce introuvable');
     }
 
     // Check ownership
@@ -149,7 +165,6 @@ export class JobTrackService {
       status: JobStatus;
       contractType: ContractType;
       notes: string;
-      attachments: Record<string, any>;
     }> = {};
 
     if (updateJobTrackDto.title !== undefined) {
@@ -175,9 +190,6 @@ export class JobTrackService {
     if (updateJobTrackDto.notes !== undefined) {
       updateData.notes = updateJobTrackDto.notes;
     }
-    if (updateJobTrackDto.attachments !== undefined) {
-      updateData.attachments = updateJobTrackDto.attachments;
-    }
 
     const prismaJobTrack = await this.prisma.jobTrack.update({
       where: { id },
@@ -196,7 +208,7 @@ export class JobTrackService {
     });
 
     if (!existingJobTrack) {
-      throw new NotFoundException('JobTrack not found');
+      throw new NotFoundException('Annonce introuvable');
     }
 
     // Check ownership
@@ -214,8 +226,249 @@ export class JobTrackService {
   }
 
   /**
-   * Get job tracks by status for a user
+   * Create a new job track along with its initial reminder in a single transaction
    */
+  async createWithReminder(
+    userId: string,
+    dto: {
+      title: string;
+      company?: string;
+      jobUrl?: string;
+      appliedAt?: string;
+      status?: JobStatus;
+      contractType?: ContractType;
+      notes?: string;
+      frequency: number;
+      nextReminderAt: string;
+      isActive?: boolean;
+    },
+  ): Promise<{
+    jobTrack: JobTrack;
+    reminder: {
+      id: string;
+      jobTrackId: string;
+      frequency: number;
+      nextReminderAt: Date;
+      lastSentAt: Date | null;
+      isActive: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+  }> {
+    // Use interactive transaction to create JobTrack then Reminder with the created jobTrackId
+    return this.prisma.$transaction(async (tx) => {
+      const createdJobTrack = await tx.jobTrack.create({
+        data: {
+          userId,
+          title: dto.title,
+          company: dto.company,
+          jobUrl: dto.jobUrl,
+          appliedAt: dto.appliedAt ? new Date(dto.appliedAt) : undefined,
+          status: dto.status || 'APPLIED',
+          contractType: dto.contractType,
+          notes: dto.notes,
+        },
+      });
+
+      const createdReminder = await tx.reminder.create({
+        data: {
+          jobTrackId: createdJobTrack.id,
+          frequency: dto.frequency,
+          nextReminderAt: new Date(dto.nextReminderAt),
+          isActive: dto.isActive ?? true,
+        },
+      });
+
+      return {
+        jobTrack: this.mapPrismaJobTrackToJobTrack(createdJobTrack),
+        reminder: {
+          id: createdReminder.id,
+          jobTrackId: createdReminder.jobTrackId,
+          frequency: createdReminder.frequency,
+          nextReminderAt: createdReminder.nextReminderAt,
+          lastSentAt: createdReminder.lastSentAt ?? null,
+          isActive: createdReminder.isActive,
+          createdAt: createdReminder.createdAt,
+          updatedAt: createdReminder.updatedAt,
+        },
+      };
+    });
+  }
+
+  /**
+   * Update a job track and its reminder in one call (with optional upsert)
+   */
+  async updateWithReminder(
+    id: string,
+    userId: string,
+    dto: {
+      title?: string;
+      company?: string;
+      jobUrl?: string;
+      appliedAt?: string;
+      status?: JobStatus;
+      contractType?: ContractType;
+      notes?: string;
+      frequency?: number;
+      nextReminderAt?: string;
+      isActive?: boolean;
+    },
+    upsert = false,
+  ): Promise<{
+    jobTrack: JobTrack;
+    reminder: {
+      id: string;
+      jobTrackId: string;
+      frequency: number;
+      nextReminderAt: Date;
+      lastSentAt: Date | null;
+      isActive: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    } | null;
+  }> {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.jobTrack.findUnique({ where: { id } });
+
+      if (!existing) {
+        if (!upsert) {
+          throw new NotFoundException('Annonce introuvable');
+        }
+        const createdJob = await tx.jobTrack.create({
+          data: {
+            id,
+            userId,
+            title: dto.title ?? 'New Job',
+            company: dto.company,
+            jobUrl: dto.jobUrl,
+            appliedAt: dto.appliedAt ? new Date(dto.appliedAt) : undefined,
+            status: dto.status ?? 'APPLIED',
+            contractType: dto.contractType,
+            notes: dto.notes,
+          },
+        });
+
+        // To "do exactly what POST with-reminder does", we create a reminder if the data is provided
+        let reminder = null as null | {
+          id: string;
+          jobTrackId: string;
+          frequency: number;
+          nextReminderAt: Date;
+          lastSentAt: Date | null;
+          isActive: boolean;
+          createdAt: Date;
+          updatedAt: Date;
+        };
+        if (dto.frequency !== undefined && dto.nextReminderAt) {
+          const createdRem = await tx.reminder.create({
+            data: {
+              jobTrackId: createdJob.id,
+              frequency: dto.frequency,
+              nextReminderAt: new Date(dto.nextReminderAt),
+              isActive: dto.isActive ?? true,
+            },
+          });
+          reminder = {
+            id: createdRem.id,
+            jobTrackId: createdRem.jobTrackId,
+            frequency: createdRem.frequency,
+            nextReminderAt: createdRem.nextReminderAt,
+            lastSentAt: createdRem.lastSentAt ?? null,
+            isActive: createdRem.isActive,
+            createdAt: createdRem.createdAt,
+            updatedAt: createdRem.updatedAt,
+          };
+        }
+
+        return {
+          jobTrack: this.mapPrismaJobTrackToJobTrack(createdJob),
+          reminder,
+        };
+      }
+
+      if (existing.userId !== userId) {
+        throw new ForbiddenException(
+          'Vous ne pouvez modifier que vos propres annonces',
+        );
+      }
+
+      const updateData: Prisma.JobTrackUpdateInput = {};
+
+      if (dto.title !== undefined) updateData.title = dto.title;
+      if (dto.company !== undefined) updateData.company = dto.company;
+      if (dto.jobUrl !== undefined) updateData.jobUrl = dto.jobUrl;
+      if (dto.appliedAt !== undefined)
+        updateData.appliedAt = dto.appliedAt
+          ? new Date(dto.appliedAt)
+          : undefined;
+      if (dto.status !== undefined) updateData.status = dto.status;
+      if (dto.contractType !== undefined)
+        updateData.contractType = dto.contractType;
+      if (dto.notes !== undefined) updateData.notes = dto.notes;
+
+      const updated = Object.keys(updateData).length
+        ? await tx.jobTrack.update({ where: { id }, data: updateData })
+        : existing;
+
+      // Update or create reminder if reminder fields provided
+      let reminderEntity = await tx.reminder.findFirst({
+        where: { jobTrackId: id },
+      });
+      const hasReminderInput =
+        dto.frequency !== undefined ||
+        dto.nextReminderAt !== undefined ||
+        dto.isActive !== undefined;
+
+      if (hasReminderInput) {
+        if (reminderEntity) {
+          const reminderUpdateData: {
+            frequency?: number;
+            nextReminderAt?: Date;
+            isActive?: boolean;
+          } = {};
+          if (dto.frequency !== undefined)
+            reminderUpdateData.frequency = dto.frequency;
+          if (dto.nextReminderAt !== undefined)
+            reminderUpdateData.nextReminderAt = dto.nextReminderAt
+              ? new Date(dto.nextReminderAt)
+              : undefined;
+          if (dto.isActive !== undefined)
+            reminderUpdateData.isActive = dto.isActive;
+
+          reminderEntity = await tx.reminder.update({
+            where: { id: reminderEntity.id },
+            data: reminderUpdateData,
+          });
+        } else if (dto.frequency !== undefined && dto.nextReminderAt) {
+          reminderEntity = await tx.reminder.create({
+            data: {
+              jobTrackId: id,
+              frequency: dto.frequency,
+              nextReminderAt: new Date(dto.nextReminderAt),
+              isActive: dto.isActive ?? true,
+            },
+          });
+        }
+      }
+
+      return {
+        jobTrack: this.mapPrismaJobTrackToJobTrack(updated),
+        reminder: reminderEntity
+          ? {
+              id: reminderEntity.id,
+              jobTrackId: reminderEntity.jobTrackId,
+              frequency: reminderEntity.frequency,
+              nextReminderAt: reminderEntity.nextReminderAt,
+              lastSentAt: reminderEntity.lastSentAt ?? null,
+              isActive: reminderEntity.isActive,
+              createdAt: reminderEntity.createdAt,
+              updatedAt: reminderEntity.updatedAt,
+            }
+          : null,
+      };
+    });
+  }
+
   async findByStatus(userId: string, status: JobStatus): Promise<JobTrack[]> {
     const prismaJobTracks = await this.prisma.jobTrack.findMany({
       where: {
@@ -228,56 +481,5 @@ export class JobTrackService {
     return prismaJobTracks.map((jobTrack) =>
       this.mapPrismaJobTrackToJobTrack(jobTrack),
     );
-  }
-
-  /**
-   * Add attachment to a job track
-   */
-  async addAttachment(
-    jobTrackId: string,
-    userId: string,
-    attachmentData: {
-      filePath: string;
-      originalName: string;
-      size: number;
-      fileType: 'document' | 'image';
-    },
-  ): Promise<JobTrack> {
-    const existingJobTrack = await this.prisma.jobTrack.findUnique({
-      where: { id: jobTrackId },
-    });
-
-    if (!existingJobTrack) {
-      throw new NotFoundException('JobTrack not found');
-    }
-
-    // Check ownership
-    if (existingJobTrack.userId !== userId) {
-      throw new ForbiddenException(
-        'Vous ne pouvez modifier que vos propres annonces',
-      );
-    }
-
-    // Get existing attachments or initialize empty array
-    const currentAttachments = (existingJobTrack.attachments as any[]) || [];
-
-    // Add new attachment
-    const newAttachment = {
-      id: crypto.randomUUID(),
-      filePath: attachmentData.filePath,
-      originalName: attachmentData.originalName,
-      size: attachmentData.size,
-      fileType: attachmentData.fileType,
-      uploadedAt: new Date(),
-    };
-
-    currentAttachments.push(newAttachment);
-
-    const prismaJobTrack = await this.prisma.jobTrack.update({
-      where: { id: jobTrackId },
-      data: { attachments: currentAttachments },
-    });
-
-    return this.mapPrismaJobTrackToJobTrack(prismaJobTrack);
   }
 }

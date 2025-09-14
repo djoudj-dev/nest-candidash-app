@@ -5,7 +5,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { JobTrackModule } from './jobtrack/jobtrack.module';
-import { ReminderModule } from './reminder/reminder.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 
 @Module({
   imports: [
@@ -13,7 +13,7 @@ import { ReminderModule } from './reminder/reminder.module';
     UsersModule,
     AuthModule,
     JobTrackModule,
-    ReminderModule,
+    SchedulerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
