@@ -176,7 +176,7 @@ export class UsersController {
     if (resetToken) {
       const user = await this.usersService.findByEmail(forgotPasswordDto.email);
       if (user) {
-        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:4200'}/auth/reset-password?token=${resetToken}`;
 
         try {
           await this.mailService.sendPasswordResetEmail({
@@ -235,6 +235,23 @@ export class UsersController {
 
     if (!success) {
       throw new Error('Mot de passe actuel incorrect');
+    }
+
+    // Send confirmation email (non-blocking)
+    try {
+      const user = await this.usersService.findOne(userId);
+      if (user) {
+        await this.mailService.sendPasswordChangeConfirmationEmail({
+          userEmail: user.email,
+          userName: user.username,
+          changeDate: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error(
+        "Erreur lors de l'envoi de l'email de confirmation de changement de mot de passe:",
+        error,
+      );
     }
 
     return UserMapper.createPasswordChangeResponse();

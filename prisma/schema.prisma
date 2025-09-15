@@ -100,3 +100,28 @@ model UserTracking {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 }
+
+model VerificationCode {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  code      String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("CodesVerification")
+}
+
+model PendingUser {
+  id               String @id @default(uuid())
+  email            String @unique
+  username         String?
+  password         String // Mot de passe hashé
+  originalPassword String // Mot de passe original pour la reconnexion
+  verified         Boolean @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("UtilisateursEnAttente")
+}
