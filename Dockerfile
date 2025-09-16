@@ -25,18 +25,23 @@ WORKDIR /app
 # Activer corepack pour pnpm
 RUN corepack enable
 
+# Copier les fichiers de dépendances
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile
 
+# Copier Prisma et les fichiers buildés
 COPY prisma ./prisma
 COPY --from=builder /app/dist ./dist
 
-# Créer un utilisateur non-root
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nestjs -u 1001
+# Créer un utilisateur non-root et donner les droits sur /app
+RUN addgroup -g 1001 -S nodejs \
+ && adduser -S nestjs -u 1001 \
+ && chown -R nestjs:nodejs /app
 
+# Passer à l'utilisateur non-root
 USER nestjs
+
 EXPOSE 3000
 
-# Générer Prisma client au runtime juste avant de lancer l'app
+# Générer Prisma client au runtime puis lancer l'app
 CMD ["sh", "-c", "npx prisma generate && node dist/main.js"]
