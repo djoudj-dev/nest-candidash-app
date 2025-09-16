@@ -44,11 +44,6 @@ COPY --from=builder /app/dist ./dist
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nestjs -u 1001
 
-# Créer les répertoires d'uploads et définir les permissions
-RUN mkdir -p /app/uploads && \
-    chown -R nestjs:nodejs /app && \
-    chmod -R 755 /app
-
 USER nestjs
 
 EXPOSE 3000
