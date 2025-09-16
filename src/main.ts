@@ -76,8 +76,10 @@ async function bootstrap() {
     },
   });
 
-  // Log des origines CORS autorisées
+  // Log des origines CORS autorisées et de la DATABASE_URL
   console.log('CORS allowed origins:', allowedOrigins);
+  console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
 
   console.log(`Application running on port ${process.env.PORT ?? 3000}`);
   console.log(
