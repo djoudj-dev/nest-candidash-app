@@ -4,10 +4,26 @@ import { PrismaClient } from '../../generated/prisma';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
   constructor() {
+    const databaseUrl = process.env.DATABASE_URL;
+
+    if (!databaseUrl) {
+      console.error('DATABASE_URL environment variable is not set');
+      console.error(
+        'Available environment variables:',
+        Object.keys(process.env),
+      );
+      throw new Error('DATABASE_URL environment variable is required');
+    }
+
+    console.log(
+      'Database URL found:',
+      databaseUrl.replace(/\/\/.*@/, '//***:***@'),
+    );
+
     super({
       datasources: {
         db: {
-          url: process.env.DATABASE_URL,
+          url: databaseUrl,
         },
       },
       log: ['query', 'info', 'warn', 'error'],
