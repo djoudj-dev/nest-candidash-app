@@ -11,16 +11,30 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Configuration CORS
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:4200',
+    'https://candidash.djoudj.dev',
+  ];
+
+  // Ajouter l'origine depuis les variables d'environnement si elle existe
+  if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL);
+  }
+
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://localhost:4200',
-      'https://candidash.djoudj.dev',
-    ],
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'X-Requested-With',
+    ],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
   // Configuration globale des pipes de validation
@@ -62,10 +76,22 @@ async function bootstrap() {
     },
   });
 
+  // Log des origines CORS autorisées
+  console.log('CORS allowed origins:', allowedOrigins);
+
   console.log(`Application running on port ${process.env.PORT ?? 3000}`);
   console.log(
     `Swagger documentation available at: http://localhost:${process.env.PORT ?? 3000}/api/docs`,
   );
+
+  // Gestion d'erreur globale pour éviter les crashes
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Rejection:', reason);
+  });
 
   await app.listen(process.env.PORT ?? 3000);
 }
