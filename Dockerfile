@@ -38,5 +38,25 @@ RUN addgroup -g 1001 -S nodejs \
 USER nestjs
 EXPOSE 3000
 
-# Lancer directement l'app sans regénérer Prisma
-CMD ["node", "dist/main.js"]
+# Script de démarrage pour vérifier les variables d'environnement
+COPY <<EOF /app/start.sh
+#!/bin/sh
+echo "=== Environment Variables Check ==="
+echo "DATABASE_URL: \${DATABASE_URL:-NOT_SET}"
+echo "NODE_ENV: \${NODE_ENV:-NOT_SET}"
+echo "PORT: \${PORT:-NOT_SET}"
+echo "=================================="
+
+if [ -z "\$DATABASE_URL" ]; then
+  echo "ERROR: DATABASE_URL is not set!"
+  echo "Please check Coolify environment variable configuration"
+  exit 1
+fi
+
+exec node dist/main.js
+EOF
+
+RUN chmod +x /app/start.sh
+
+# Lancer avec le script de vérification
+CMD ["/app/start.sh"]
