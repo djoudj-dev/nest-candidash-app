@@ -35,14 +35,14 @@ RUN corepack enable
 # Copier les fichiers de dépendances
 COPY package.json pnpm-lock.yaml ./
 
-# Installer uniquement les dépendances de production
-RUN pnpm install --prod --frozen-lockfile
+# Installer uniquement les dépendances de production + prisma CLI pour les migrations
+RUN pnpm install --prod --frozen-lockfile && pnpm add prisma
 
 # Copier les artefacts de build depuis le stage builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/generated ./generated
 
-# Copier le schéma Prisma (nécessaire pour les migrations si besoin)
+# Copier le schéma Prisma et les migrations
 COPY prisma ./prisma
 
 # Script de démarrage avec migrations
