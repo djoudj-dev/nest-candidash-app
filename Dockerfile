@@ -30,14 +30,6 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/generated ./generated
 COPY prisma ./prisma
 
-# Créer un utilisateur non-root et donner les droits
-RUN addgroup -g 1001 -S nodejs \
- && adduser -S nestjs -u 1001 \
- && chown -R nestjs:nodejs /app
-
-USER nestjs
-EXPOSE 3000
-
 # Script de démarrage pour vérifier les variables d'environnement
 COPY <<EOF /app/start.sh
 #!/bin/sh
@@ -57,6 +49,14 @@ exec node dist/main.js
 EOF
 
 RUN chmod +x /app/start.sh
+
+# Créer un utilisateur non-root et donner les droits
+RUN addgroup -g 1001 -S nodejs \
+ && adduser -S nestjs -u 1001 \
+ && chown -R nestjs:nodejs /app
+
+USER nestjs
+EXPOSE 3000
 
 # Lancer avec le script de vérification
 CMD ["/app/start.sh"]
