@@ -62,7 +62,7 @@ ENV PORT=3000
 
 # Vérification de santé pour Coolify
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD curl -f https://api-candidash.djoudj.dev/api/v1 || exit 1
+  CMD curl -f http://localhost:3000/api/v1 || exit 1
 
 # Commande de démarrage
 CMD ["node", "dist/main"]
