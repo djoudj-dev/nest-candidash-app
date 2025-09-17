@@ -53,7 +53,7 @@ echo "Current directory: \$(pwd)"
 echo "Files in prisma/: \$(ls -la prisma/ 2>/dev/null || echo 'No prisma directory')"
 echo "DATABASE_URL set: \${DATABASE_URL:+YES}"
 echo "Running database migrations..."
-npx prisma migrate deploy --verbose
+npx prisma migrate deploy
 migration_exit_code=\$?
 echo "Migration exit code: \$migration_exit_code"
 if [ \$migration_exit_code -ne 0 ]; then
