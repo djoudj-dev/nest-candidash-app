@@ -45,6 +45,17 @@ COPY --from=builder /app/generated ./generated
 # Copier le schéma Prisma (nécessaire pour les migrations si besoin)
 COPY prisma ./prisma
 
+# Script de démarrage avec migrations
+COPY <<EOF /app/start.sh
+#!/bin/sh
+echo "Running database migrations..."
+npx prisma migrate deploy
+echo "Starting application..."
+exec node dist/main
+EOF
+
+RUN chmod +x /app/start.sh
+
 # Créer un utilisateur non-root pour la sécurité
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001 && \
@@ -65,4 +76,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/api/v1 || exit 1
 
 # Commande de démarrage
-CMD ["node", "dist/main"]
+CMD ["/app/start.sh"]
