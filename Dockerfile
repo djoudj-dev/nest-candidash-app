@@ -26,6 +26,9 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
+# Installer curl pour le healthcheck
+RUN apk add --no-cache curl
+
 # Activer corepack pour pnpm
 RUN corepack enable
 
@@ -58,8 +61,8 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Vérification de santé pour Coolify
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "const http = require('http'); http.get('http://localhost:3000/api/v1', (res) => { process.exit(res.statusCode === 404 ? 0 : 1); }).on('error', () => process.exit(1));"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f https://api-candidash.djoudj.dev/api/v1 || exit 1
 
-# Commande de démarrage avec gestion d'erreur
-CMD ["sh", "-c", "echo 'Starting application...' && echo 'DATABASE_URL: ${DATABASE_URL:-NOT_SET}' && node dist/main"]
+# Commande de démarrage
+CMD ["node", "dist/main"]
