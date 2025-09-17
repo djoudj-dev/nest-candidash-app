@@ -52,8 +52,16 @@ echo "=== STARTING MIGRATION PROCESS ==="
 echo "Current directory: \$(pwd)"
 echo "Files in prisma/: \$(ls -la prisma/ 2>/dev/null || echo 'No prisma directory')"
 echo "DATABASE_URL set: \${DATABASE_URL:+YES}"
-echo "Running database migrations..."
-npx prisma migrate deploy
+echo "Checking if tables exist..."
+table_check=\$(npx prisma db execute --stdin <<< "SELECT to_regclass('public.UtilisateursEnAttente');" 2>/dev/null | grep -c "UtilisateursEnAttente" || echo "0")
+echo "Table check result: \$table_check"
+if [ "\$table_check" = "0" ]; then
+    echo "Tables missing! Forcing migration reset..."
+    npx prisma db push --force-reset --skip-generate
+else
+    echo "Tables exist, running normal migrations..."
+    npx prisma migrate deploy
+fi
 migration_exit_code=\$?
 echo "Migration exit code: \$migration_exit_code"
 if [ \$migration_exit_code -ne 0 ]; then
