@@ -176,7 +176,11 @@ export class UsersController {
     if (resetToken) {
       const user = await this.usersService.findByEmail(forgotPasswordDto.email);
       if (user) {
-        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:4200'}/auth/reset-password?token=${resetToken}`;
+        // Utiliser la première origine autorisée pour le reset URL
+        const frontendUrl =
+          process.env.ALLOWED_ORIGINS?.split(',')[0]?.trim() ||
+          'http://localhost:4200';
+        const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
 
         try {
           await this.mailService.sendPasswordResetEmail({

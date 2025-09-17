@@ -57,5 +57,9 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Commande de démarrage
-CMD ["node", "dist/main"]
+# Vérification de santé pour Coolify
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "const http = require('http'); http.get('http://localhost:3000/api/v1', (res) => { process.exit(res.statusCode === 404 ? 0 : 1); }).on('error', () => process.exit(1));"
+
+# Commande de démarrage avec gestion d'erreur
+CMD ["sh", "-c", "echo 'Starting application...' && echo 'DATABASE_URL: ${DATABASE_URL:-NOT_SET}' && node dist/main"]

@@ -11,16 +11,19 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Configuration CORS
-  const allowedOrigins = [
+  let allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:4200',
     'https://candidash.djoudj.dev',
   ];
 
-  // Ajouter l'origine depuis les variables d'environnement si elle existe
-  if (process.env.FRONTEND_URL) {
-    allowedOrigins.push(process.env.FRONTEND_URL);
+  // Utiliser ALLOWED_ORIGINS de Coolify si définie
+  if (process.env.ALLOWED_ORIGINS) {
+    const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map((origin) =>
+      origin.trim(),
+    );
+    allowedOrigins = [...allowedOrigins, ...envOrigins];
   }
 
   app.enableCors({
